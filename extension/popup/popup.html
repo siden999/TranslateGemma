@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TranslateGemma</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- 標題區 -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🌐</span>
+                <h1>TranslateGemma</h1>
+            </div>
+            <div class="status" id="status">
+                <span class="status-dot"></span>
+                <span class="status-text">檢查中...</span>
+            </div>
+        </header>
+
+        <!-- 主要控制區 -->
+        <main class="main">
+            <!-- 翻譯開關 -->
+            <div class="control-row">
+                <label class="control-label">
+                    <span>啟用翻譯</span>
+                    <span class="shortcut">Alt+A</span>
+                </label>
+                <label class="toggle">
+                    <input type="checkbox" id="enableToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <!-- 翻譯按鈕 -->
+            <button class="translate-btn" id="translateBtn">
+                <span class="btn-icon">📖</span>
+                翻譯此頁面
+            </button>
+
+            <!-- 目標語言 -->
+            <div class="control-row">
+                <label class="control-label">目標語言</label>
+                <select id="targetLang" class="select">
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="zh-CN">簡體中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
+
+            <!-- 顯示選項 -->
+            <div class="control-row">
+                <label class="control-label">顯示原文</label>
+                <label class="toggle">
+                    <input type="checkbox" id="showOriginal" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </main>
+
+        <!-- 底部資訊 -->
+        <footer class="footer">
+            <span>v0.1.0</span>
+            <a href="#" id="settingsLink">設定</a>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
