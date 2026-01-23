@@ -79,6 +79,19 @@ function detectLanguage(text) {
 }
 
 // ============== 收集可翻譯元素 ==============
+// 需要排除的選擇器（廣告、腳本、iframe 等）
+const EXCLUDE_SELECTORS = [
+    'script', 'style', 'noscript', 'iframe', 'canvas', 'svg',
+    'code', 'pre', 'textarea', 'input',
+    '[class*="ad-"]', '[class*="ads-"]', '[class*="advert"]',
+    '[id*="ad-"]', '[id*="ads-"]', '[id*="advert"]',
+    '[class*="sponsor"]', '[class*="banner"]',
+    '[data-ad]', '[data-ads]', '[data-advertisement]',
+    '.ad', '.ads', '.advertisement', '.sponsored',
+    '.google-ad', '.dfp-ad', '.taboola', '.outbrain',
+    '[aria-hidden="true"]'
+].join(', ');
+
 function collectTranslatableElements() {
     const selectors = [
         'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -97,9 +110,16 @@ function collectTranslatableElements() {
         // 跳過隱藏元素
         if (element.offsetParent === null) continue;
 
+        // 跳過廣告和腳本區塊
+        if (element.closest(EXCLUDE_SELECTORS)) continue;
+        if (element.matches(EXCLUDE_SELECTORS)) continue;
+
         // 跳過太短的文字
         const text = element.textContent.trim();
         if (text.length < 15) continue;
+
+        // 跳過看起來像代碼的內容（包含程式語法特徵）
+        if (isCodeLikeContent(text)) continue;
 
         // 跳過已是目標語言
         const lang = detectLanguage(text);
@@ -109,6 +129,28 @@ function collectTranslatableElements() {
     }
 
     return result;
+}
+
+// 檢測是否為程式碼內容
+function isCodeLikeContent(text) {
+    // 常見的程式碼特徵
+    const codePatterns = [
+        /\bfunction\s*\(/,           // function(
+        /\bvar\s+\w+\s*=/,           // var x =
+        /\bconst\s+\w+\s*=/,         // const x =
+        /\blet\s+\w+\s*=/,           // let x =
+        /document\.\w+\(/,           // document.write(
+        /Math\.\w+\(/,               // Math.random(
+        /\{\s*[\w"']:\s*/,           // { key:
+        /<scr[^\>]*>/i,              // <script>
+        /src\s*=\s*['"]/,            // src="
+        /\(\s*function\s*\(/,        // (function(
+        /=>\s*\{/,                   // =>  {
+        /\$\(['"]/,                  // $(" or $('
+        /https?:\/\/[^\s]+\.js/,     // .js URLs
+    ];
+
+    return codePatterns.some(pattern => pattern.test(text));
 }
 
 // ============== 翻譯可視區域的元素 ==============
@@ -400,6 +442,11 @@ function handleTextSelection(e) {
             return;
         }
 
+        // 跳過看起來像代碼的內容
+        if (isCodeLikeContent(selectedText)) {
+            return;
+        }
+
         // 檢查語言（如果已經是目標語言就不翻譯）
         const lang = detectLanguage(selectedText);
         if (lang === settings.targetLang.split('-')[0]) {
@@ -507,10 +554,20 @@ function findTranslatableParent(element) {
             return null;
         }
 
+        // 跳過廣告和腳本區塊
+        if (current.closest(EXCLUDE_SELECTORS)) {
+            return null;
+        }
+
         if (translatableTags.includes(current.tagName)) {
             const text = current.textContent.trim();
             // 確保有足夠的文字且不是目標語言
             if (text.length >= 10 && text.length <= 2000) {
+                // 跳過看起來像代碼的內容
+                if (isCodeLikeContent(text)) {
+                    return null;
+                }
+
                 const lang = detectLanguage(text);
                 if (lang !== settings.targetLang.split('-')[0]) {
                     return current;
