@@ -79,94 +79,56 @@ function detectLanguage(text) {
 }
 
 // ============== 收集可翻譯元素 ==============
-// 需要排除的選擇器（廣告、腳本、導航等）
+// 需要排除的選擇器（廣告、腳本、iframe 等）
 const EXCLUDE_SELECTORS = [
-    // 腳本和樣式
     'script', 'style', 'noscript', 'iframe', 'canvas', 'svg',
-    'code', 'pre', 'textarea', 'input', 'button', 'select', 'option',
-
-    // 導航元素（只排除標籤本身）
-    'nav', 'menu', 'menuitem',
-    '[role="navigation"]', '[role="menu"]', '[role="menubar"]', '[role="menuitem"]',
-    '[role="button"]', '[role="tab"]', '[role="tablist"]',
-
-    // 廣告
+    'code', 'pre', 'textarea', 'input',
     '[class*="ad-"]', '[class*="ads-"]', '[class*="advert"]',
     '[id*="ad-"]', '[id*="ads-"]', '[id*="advert"]',
     '[class*="sponsor"]', '[class*="banner"]',
     '[data-ad]', '[data-ads]', '[data-advertisement]',
     '.ad', '.ads', '.advertisement', '.sponsored',
     '.google-ad', '.dfp-ad', '.taboola', '.outbrain',
-
-    // 其他
     '[aria-hidden="true"]'
 ].join(', ');
 
 function collectTranslatableElements() {
-    // 優先從語義區域收集（article, main）
-    const contentAreas = document.querySelectorAll('article, main, [role="main"], [role="article"], .content, .post, .entry');
+    const selectors = [
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'li', 'td', 'th', 'blockquote', 'figcaption',
+        'article p', '.article-content p', '.post-content p',
+        '[class*="content"] p', '[class*="article"] p'
+    ].join(', ');
 
-    // 如果沒有語義區域，則從 body 收集
-    const searchAreas = contentAreas.length > 0 ? contentAreas : [document.body];
-
-    // 基本的內容選擇器
-    const contentSelectors = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption';
-
+    const elements = document.querySelectorAll(selectors);
     const result = [];
 
-    for (const area of searchAreas) {
-        const elements = area.querySelectorAll(contentSelectors);
+    for (const element of elements) {
+        // 跳過已處理的元素
+        if (translatedElements.has(element)) continue;
 
-        for (const element of elements) {
-            // 跳過已處理的元素
-            if (translatedElements.has(element)) continue;
+        // 跳過隱藏元素
+        if (element.offsetParent === null) continue;
 
-            // 跳過隱藏元素
-            if (element.offsetParent === null) continue;
+        // 跳過廣告和腳本區塊
+        if (element.closest(EXCLUDE_SELECTORS)) continue;
+        if (element.matches(EXCLUDE_SELECTORS)) continue;
 
-            // 跳過廣告區塊
-            if (element.closest(EXCLUDE_SELECTORS)) continue;
-            if (element.matches && element.matches(EXCLUDE_SELECTORS)) continue;
+        // 跳過太短的文字
+        const text = element.textContent.trim();
+        if (text.length < 15) continue;
 
-            // 🔑 核心過濾：智能內容偵測
-            if (!isTranslatableContent(element)) continue;
+        // 跳過看起來像代碼的內容（包含程式語法特徵）
+        if (isCodeLikeContent(text)) continue;
 
-            const text = element.textContent.trim();
-            const lang = detectLanguage(text);
+        // 跳過已是目標語言
+        const lang = detectLanguage(text);
+        if (lang === settings.targetLang.split('-')[0]) continue;
 
-            // 跳過已是目標語言
-            if (lang === settings.targetLang.split('-')[0]) continue;
-
-            result.push({ element, text, lang });
-        }
+        result.push({ element, text, lang });
     }
 
     return result;
-}
-
-// ============== 智能內容偵測 ==============
-function isTranslatableContent(element) {
-    const text = element.textContent.trim();
-    const tagName = element.tagName.toUpperCase();
-
-    // 標題 (h1-h6) 的門檻較低，只需 5 字元
-    const isHeading = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tagName);
-    const minLength = isHeading ? 5 : 15;
-
-    // 1. 文字長度過濾
-    if (text.length < minLength) return false;
-    if (text.length > 5000) return false;
-
-    // 2. 排除互動元素（但保留包含長文字的連結）
-    if (element.closest('button, [role="button"]')) return false;
-
-    // 3. 排除導航區域（只排除真正的 nav 標籤）
-    if (element.closest('nav, [role="navigation"]')) return false;
-
-    // 4. 排除程式碼內容
-    if (isCodeLikeContent(text)) return false;
-
-    return true;
 }
 
 // 檢測是否為程式碼內容
@@ -275,22 +237,22 @@ async function translateSingleElement({ element, text, lang }) {
 function showLoadingState(element) {
     element.classList.add('tg-translating');
 
-    // 建立骨架載入效果（內聯版）
-    const skeleton = document.createElement('span');
+    // 建立骨架載入效果
+    const skeleton = document.createElement('div');
     skeleton.className = 'tg-translation-skeleton';
     skeleton.innerHTML = `
-        <span class="tg-skeleton-line" style="width: 90%"></span>
-        <span class="tg-skeleton-line" style="width: 75%"></span>
-        <span class="tg-skeleton-line" style="width: 60%"></span>
+        <div class="tg-skeleton-line" style="width: 90%"></div>
+        <div class="tg-skeleton-line" style="width: 75%"></div>
+        <div class="tg-skeleton-line" style="width: 60%"></div>
     `;
-    element.appendChild(skeleton);
+    element.insertAdjacentElement('afterend', skeleton);
 }
 
 // ============== 移除載入狀態 ==============
 function removeLoadingState(element) {
     element.classList.remove('tg-translating');
-    const skeleton = element.querySelector('.tg-translation-skeleton');
-    if (skeleton) {
+    const skeleton = element.nextElementSibling;
+    if (skeleton && skeleton.classList.contains('tg-translation-skeleton')) {
         skeleton.remove();
     }
 }
@@ -302,18 +264,16 @@ function insertTranslation(element, translation) {
 
     element.classList.add('tg-translated');
 
-    // 建立翻譯容器 - 放在原文元素內部以避免破壞 flex/grid 佈局
-    const container = document.createElement('span');
-    container.className = 'tg-translation-inline';
+    // 建立翻譯容器
+    const container = document.createElement('div');
+    container.className = 'tg-translation-container';
 
-    const translationEl = document.createElement('span');
+    const translationEl = document.createElement('div');
     translationEl.className = 'tg-translation';
     translationEl.textContent = translation;
 
     container.appendChild(translationEl);
-
-    // 插入到元素內部末尾（而非作為兄弟元素）
-    element.appendChild(container);
+    element.insertAdjacentElement('afterend', container);
 }
 
 // ============== 滾動處理 ==============
@@ -599,10 +559,7 @@ function findTranslatableParent(element) {
             return null;
         }
 
-        if (translatableTags.includes(current.tagName) ||
-            current.hasAttribute('data-testid') ||  // Twitter
-            current.hasAttribute('slot') ||         // Reddit
-            current.hasAttribute('lang')) {         // 有語言標記的元素
+        if (translatableTags.includes(current.tagName)) {
             const text = current.textContent.trim();
             // 確保有足夠的文字且不是目標語言
             if (text.length >= 10 && text.length <= 2000) {
