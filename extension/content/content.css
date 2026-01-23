@@ -186,3 +186,88 @@
     border-radius: 4px;
     transition: background-color 0.3s ease;
 }
+
+/* ============== 右鍵選單翻譯彈出框 ============== */
+.tg-selection-popup {
+    position: fixed;
+    width: 320px;
+    max-width: 90vw;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+    animation: tg-popup-in 0.2s ease-out;
+    overflow: hidden;
+}
+
+.tg-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+    color: white;
+}
+
+.tg-popup-icon {
+    font-size: 16px;
+}
+
+.tg-popup-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tg-popup-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    padding: 0;
+    line-height: 1;
+}
+
+.tg-popup-close:hover {
+    opacity: 1;
+}
+
+.tg-popup-content {
+    padding: 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1e293b;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.tg-popup-error {
+    color: #dc2626;
+}
+
+@keyframes tg-popup-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 深色模式彈出框 */
+@media (prefers-color-scheme: dark) {
+    .tg-selection-popup {
+        background: #1e293b;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .tg-popup-content {
+        color: #e2e8f0;
+    }
+}

@@ -296,7 +296,69 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         sendResponse({ success: true });
     }
+
+    // 右鍵選單翻譯結果顯示
+    if (request.action === 'showSelectionTranslation') {
+        showSelectionPopup(request.originalText, request.translation, request.isError);
+        sendResponse({ success: true });
+    }
 });
+
+// ============== 選取翻譯彈出框 ==============
+function showSelectionPopup(originalText, translation, isError = false) {
+    // 移除已存在的彈出框
+    removeSelectionPopup();
+
+    // 取得選取的位置
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // 建立彈出框
+    const popup = document.createElement('div');
+    popup.className = 'tg-selection-popup';
+    popup.id = 'tg-selection-popup';
+
+    popup.innerHTML = `
+        <div class="tg-popup-header">
+            <span class="tg-popup-icon">${isError ? '⚠️' : '🌐'}</span>
+            <span class="tg-popup-title">TranslateGemma</span>
+            <button class="tg-popup-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+        </div>
+        <div class="tg-popup-content ${isError ? 'tg-popup-error' : ''}">
+            ${translation}
+        </div>
+    `;
+
+    // 定位彈出框
+    popup.style.position = 'fixed';
+    popup.style.left = `${Math.min(rect.left, window.innerWidth - 350)}px`;
+    popup.style.top = `${rect.bottom + 10}px`;
+    popup.style.zIndex = '2147483647';
+
+    document.body.appendChild(popup);
+
+    // 點擊其他地方關閉
+    setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+    }, 100);
+}
+
+function removeSelectionPopup() {
+    const existing = document.getElementById('tg-selection-popup');
+    if (existing) existing.remove();
+    document.removeEventListener('click', handleClickOutside);
+}
+
+function handleClickOutside(e) {
+    const popup = document.getElementById('tg-selection-popup');
+    if (popup && !popup.contains(e.target)) {
+        removeSelectionPopup();
+    }
+}
 
 // 啟動
 init();
+
