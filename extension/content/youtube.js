@@ -1,6 +1,6 @@
 /**
- * TranslateGemma YouTube 字幕翻譯 v2.0
- * 專門處理 YouTube 影片 CC 字幕的雙語顯示
+ * TranslateGemma YouTube 字幕翻譯 v2.1
+ * 修復：加入防抖機制避免當機
  */
 
 // 設定
@@ -12,22 +12,12 @@ let ytSettings = {
 // 狀態
 let subtitleObserver = null;
 let translatedSubtitles = new Map();
-let isObserving = false;
+let isProcessing = false;
+let debounceTimer = null;
 
-// YouTube 字幕相關的所有可能選擇器
-const SUBTITLE_SELECTORS = {
-    container: [
-        '.ytp-caption-window-container',
-        '.caption-window',
-        '#caption-window-1'
-    ],
-    segments: [
-        '.ytp-caption-segment',
-        '.captions-text span',
-        '.caption-visual-line',
-        '.ytp-caption-window-container span'
-    ]
-};
+// 限制：最多同時進行的翻譯請求數
+const MAX_CONCURRENT = 2;
+let activeRequests = 0;
 
 /**
  * 初始化
@@ -35,76 +25,47 @@ const SUBTITLE_SELECTORS = {
 async function initYouTube() {
     console.log('🎬 TranslateGemma YouTube 字幕翻譯已載入');
 
-    // 載入設定
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
         ytSettings = { ...ytSettings, ...response };
     } catch (e) {
-        console.log('使用預設 YouTube 設定');
+        console.log('使用預設設定');
     }
 
-    // 添加樣式
     addYouTubeStyles();
-
-    // 等待播放器載入
-    waitForPlayer();
-
-    // 監聽頁面導航（YouTube SPA）
-    observeNavigation();
+    waitForCaptionContainer();
 }
 
 /**
- * 等待 YouTube 播放器載入
+ * 等待字幕容器出現
  */
-function waitForPlayer() {
-    console.log('⏳ 等待 YouTube 播放器載入...');
-
-    const checkPlayer = setInterval(() => {
-        const player = document.querySelector('.html5-video-player, #movie_player');
-        if (player) {
-            clearInterval(checkPlayer);
-            console.log('✅ 找到 YouTube 播放器');
-            setupSubtitleObserver();
-        }
-    }, 1000);
-
-    // 30 秒後停止檢查
-    setTimeout(() => clearInterval(checkPlayer), 30000);
-}
-
-/**
- * 設置字幕觀察器
- */
-function setupSubtitleObserver() {
-    if (isObserving) return;
-
-    console.log('🔍 設置字幕觀察器...');
-
-    // 嘗試找到字幕容器
-    let container = null;
-    for (const selector of SUBTITLE_SELECTORS.container) {
-        container = document.querySelector(selector);
+function waitForCaptionContainer() {
+    // 只觀察字幕容器，不要觀察整個播放器
+    const checkCaption = setInterval(() => {
+        const container = document.querySelector('.ytp-caption-window-container');
         if (container) {
-            console.log(`✅ 找到字幕容器: ${selector}`);
-            break;
+            clearInterval(checkCaption);
+            console.log('✅ 找到字幕容器');
+            setupObserver(container);
         }
+    }, 2000);
+
+    // 60 秒後停止（節省資源）
+    setTimeout(() => clearInterval(checkCaption), 60000);
+}
+
+/**
+ * 設置觀察器（只觀察字幕容器）
+ */
+function setupObserver(container) {
+    if (subtitleObserver) {
+        subtitleObserver.disconnect();
     }
 
-    // 如果找不到容器，觀察整個播放器區域
-    if (!container) {
-        container = document.querySelector('.html5-video-player, #movie_player');
-        console.log('⚠️ 未找到字幕容器，觀察整個播放器');
-    }
-
-    if (!container) {
-        console.log('❌ 無法找到可觀察的元素，1 秒後重試');
-        setTimeout(setupSubtitleObserver, 1000);
-        return;
-    }
-
-    // 建立 MutationObserver
-    subtitleObserver = new MutationObserver((mutations) => {
-        handleSubtitleChange();
+    subtitleObserver = new MutationObserver(() => {
+        // 防抖：300ms 內只處理一次
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(processSubtitles, 300);
     });
 
     subtitleObserver.observe(container, {
@@ -113,161 +74,106 @@ function setupSubtitleObserver() {
         characterData: true
     });
 
-    isObserving = true;
-    console.log('✅ 字幕觀察器已啟動');
-
-    // 立即處理一次現有字幕
-    handleSubtitleChange();
+    console.log('✅ 字幕觀察器已啟動（防抖模式）');
 }
 
 /**
- * 監聽 YouTube SPA 導航
+ * 處理字幕（帶節流）
  */
-function observeNavigation() {
-    // YouTube 是 SPA，需要監聽導航變化
-    let lastUrl = location.href;
+async function processSubtitles() {
+    if (!ytSettings.enabled || isProcessing) return;
+    isProcessing = true;
 
-    new MutationObserver(() => {
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            console.log('🔄 YouTube 頁面導航，重新設置觀察器');
+    try {
+        const segments = document.querySelectorAll('.ytp-caption-segment');
 
-            // 重置狀態
-            isObserving = false;
-            translatedSubtitles.clear();
-
-            if (subtitleObserver) {
-                subtitleObserver.disconnect();
+        for (const segment of segments) {
+            // 限制並發數
+            if (activeRequests >= MAX_CONCURRENT) {
+                await new Promise(r => setTimeout(r, 100));
             }
 
-            // 等待新頁面載入
-            setTimeout(waitForPlayer, 1000);
+            await translateSegment(segment);
         }
-    }).observe(document.body, { childList: true, subtree: true });
-}
-
-/**
- * 處理字幕變化
- */
-async function handleSubtitleChange() {
-    if (!ytSettings.enabled) return;
-
-    // 嘗試多種選擇器找字幕元素
-    let subtitleElements = [];
-    for (const selector of SUBTITLE_SELECTORS.segments) {
-        const elements = document.querySelectorAll(selector);
-        if (elements.length > 0) {
-            subtitleElements = Array.from(elements);
-            break;
-        }
-    }
-
-    if (subtitleElements.length === 0) return;
-
-    for (const element of subtitleElements) {
-        await translateSubtitleElement(element);
+    } finally {
+        isProcessing = false;
     }
 }
 
 /**
- * 翻譯單個字幕元素
+ * 翻譯單個字幕段落
  */
-async function translateSubtitleElement(element) {
-    const originalText = element.textContent.trim();
+async function translateSegment(segment) {
+    const text = segment.textContent.trim();
 
-    // 跳過太短或空的文字
-    if (!originalText || originalText.length < 2) return;
-
-    // 跳過已經是翻譯容器的元素
-    if (element.classList.contains('tg-yt-translation')) return;
-
-    // 檢查是否已翻譯
-    if (translatedSubtitles.has(originalText)) {
-        const cached = translatedSubtitles.get(originalText);
-        if (cached) {
-            insertSubtitleTranslation(element, cached);
-        }
+    // 跳過條件
+    if (!text || text.length < 3) return;
+    if (segment.dataset.tgProcessed) return;
+    if (translatedSubtitles.has(text)) {
+        showTranslation(segment, translatedSubtitles.get(text));
         return;
     }
 
-    // 標記為處理中
-    translatedSubtitles.set(originalText, null);
+    // 標記已處理
+    segment.dataset.tgProcessed = 'true';
+    translatedSubtitles.set(text, null);
 
+    activeRequests++;
     try {
         const response = await chrome.runtime.sendMessage({
             action: 'translate',
-            text: originalText,
+            text: text,
             sourceLang: 'en',
             targetLang: ytSettings.targetLang
         });
 
-        if (response && response.success && response.translation) {
-            translatedSubtitles.set(originalText, response.translation);
-            insertSubtitleTranslation(element, response.translation);
+        if (response?.success && response.translation) {
+            translatedSubtitles.set(text, response.translation);
+            showTranslation(segment, response.translation);
         }
-    } catch (error) {
-        console.error('YouTube 字幕翻譯失敗:', error);
-        translatedSubtitles.delete(originalText);
+    } catch (e) {
+        console.error('字幕翻譯錯誤:', e);
+    } finally {
+        activeRequests--;
     }
 }
 
 /**
- * 插入字幕翻譯
+ * 顯示翻譯
  */
-function insertSubtitleTranslation(element, translation) {
-    if (!translation) return;
+function showTranslation(segment, translation) {
+    if (!translation || !segment.parentElement) return;
 
-    // 檢查父元素是否已有翻譯
-    const parent = element.parentElement;
-    if (!parent) return;
-
-    // 檢查是否已有翻譯元素
-    let translationEl = parent.querySelector('.tg-yt-translation');
-
-    if (!translationEl) {
-        translationEl = document.createElement('div');
-        translationEl.className = 'tg-yt-translation';
-
-        // 插入到字幕元素後面
-        if (element.nextSibling) {
-            parent.insertBefore(translationEl, element.nextSibling);
-        } else {
-            parent.appendChild(translationEl);
-        }
+    // 避免重複添加
+    const existing = segment.parentElement.querySelector('.tg-yt-trans');
+    if (existing) {
+        existing.textContent = translation;
+        return;
     }
 
-    translationEl.textContent = translation;
+    const el = document.createElement('div');
+    el.className = 'tg-yt-trans';
+    el.textContent = translation;
+    segment.parentElement.appendChild(el);
 }
 
 /**
- * 添加 YouTube 專用樣式
+ * 樣式
  */
 function addYouTubeStyles() {
-    // 檢查是否已添加
-    if (document.getElementById('tg-youtube-styles')) return;
+    if (document.getElementById('tg-yt-style')) return;
 
     const style = document.createElement('style');
-    style.id = 'tg-youtube-styles';
+    style.id = 'tg-yt-style';
     style.textContent = `
-        /* YouTube 字幕翻譯樣式 */
-        .tg-yt-translation {
+        .tg-yt-trans {
             color: #ffeb3b !important;
-            font-size: 0.9em !important;
-            margin-top: 6px !important;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9) !important;
-            background: rgba(0, 0, 0, 0.7) !important;
-            padding: 4px 12px !important;
-            border-radius: 4px !important;
-            display: block !important;
-            text-align: center !important;
-            font-weight: 500 !important;
-            line-height: 1.4 !important;
-        }
-        
-        /* 確保字幕容器可以包含翻譯 */
-        .ytp-caption-segment,
-        .caption-visual-line {
-            display: block !important;
+            font-size: 0.85em !important;
+            margin-top: 4px !important;
+            text-shadow: 1px 1px 3px #000 !important;
+            background: rgba(0,0,0,0.6) !important;
+            padding: 2px 8px !important;
+            border-radius: 3px !important;
         }
     `;
     document.head.appendChild(style);
@@ -276,18 +182,25 @@ function addYouTubeStyles() {
 // 初始化
 initYouTube();
 
+// 監聽 YouTube 導航（SPA）
+let lastUrl = location.href;
+setInterval(() => {
+    if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        translatedSubtitles.clear();
+        if (subtitleObserver) subtitleObserver.disconnect();
+        setTimeout(waitForCaptionContainer, 2000);
+    }
+}, 3000);
+
 // 訊息監聽
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'toggleYouTubeTranslation') {
         ytSettings.enabled = !ytSettings.enabled;
-        console.log(`YouTube 字幕翻譯: ${ytSettings.enabled ? '開啟' : '關閉'}`);
         sendResponse({ enabled: ytSettings.enabled });
     }
-
     if (request.action === 'updateSettings') {
         ytSettings = { ...ytSettings, ...request.settings };
         sendResponse({ success: true });
     }
 });
-
-console.log('🎬 TranslateGemma YouTube 模組已就緒');
