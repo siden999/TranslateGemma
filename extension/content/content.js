@@ -79,17 +79,29 @@ function detectLanguage(text) {
 }
 
 // ============== 收集可翻譯元素 ==============
-// 需要排除的選擇器（廣告、腳本、iframe 等）
+// 需要排除的選擇器（廣告、腳本、導航、選單等）
 const EXCLUDE_SELECTORS = [
+    // 腳本和樣式
     'script', 'style', 'noscript', 'iframe', 'canvas', 'svg',
-    'code', 'pre', 'textarea', 'input',
+    'code', 'pre', 'textarea', 'input', 'button', 'select', 'option',
+
+    // 導航和選單（避免破壞佈局）
+    'nav', 'header', 'footer', 'aside', 'menu', 'menuitem',
+    '[role="navigation"]', '[role="menu"]', '[role="menubar"]', '[role="menuitem"]',
+    '[role="button"]', '[role="tab"]', '[role="tablist"]',
+    '[class*="nav"]', '[class*="menu"]', '[class*="header"]', '[class*="footer"]',
+    '[class*="sidebar"]', '[class*="dropdown"]', '[class*="toolbar"]',
+
+    // 廣告
     '[class*="ad-"]', '[class*="ads-"]', '[class*="advert"]',
     '[id*="ad-"]', '[id*="ads-"]', '[id*="advert"]',
     '[class*="sponsor"]', '[class*="banner"]',
     '[data-ad]', '[data-ads]', '[data-advertisement]',
     '.ad', '.ads', '.advertisement', '.sponsored',
     '.google-ad', '.dfp-ad', '.taboola', '.outbrain',
-    '[aria-hidden="true"]'
+
+    // 其他
+    '[aria-hidden="true"]', '[data-testid*="nav"]'
 ].join(', ');
 
 function collectTranslatableElements() {
