@@ -61,10 +61,7 @@
     transition: background-color 0.3s ease;
 }
 
-/* ============== 已翻譯狀態（輕量化） ============== */
-.tg-translated {
-    /* 移除可能影響佈局的樣式 */
-}
+/* 已翻譯狀態 - 不需要額外樣式以避免影響佈局 */
 
 /* ============== 動畫 ============== */
 @keyframes tg-fade-in {
@@ -214,5 +211,102 @@
 
     .tg-popup-content {
         color: #e2e8f0 !important;
+    }
+}
+
+/* ============== 滑鼠懸停翻譯 Tooltip ============== */
+.tg-hover-tooltip {
+    max-width: 350px !important;
+    min-width: 200px !important;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    color: #e8e8e8 !important;
+    overflow: hidden !important;
+    backdrop-filter: blur(10px) !important;
+    animation: tg-tooltip-fade-in 0.2s ease-out !important;
+}
+
+@keyframes tg-tooltip-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tg-hover-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    font-size: 12px !important;
+    color: #8b9dc3 !important;
+}
+
+.tg-hover-close {
+    background: none !important;
+    border: none !important;
+    color: #8b9dc3 !important;
+    cursor: pointer !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    transition: all 0.2s !important;
+}
+
+.tg-hover-close:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+}
+
+.tg-hover-content {
+    padding: 12px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+
+.tg-hover-loading {
+    padding: 12px !important;
+    text-align: center !important;
+    color: #8b9dc3 !important;
+}
+
+/* 淺色模式支援 */
+@media (prefers-color-scheme: light) {
+    .tg-hover-tooltip {
+        background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%) !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+        color: #333 !important;
+    }
+
+    .tg-hover-header {
+        background: rgba(0, 0, 0, 0.05) !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        color: #666 !important;
+    }
+
+    .tg-hover-close {
+        color: #666 !important;
+    }
+
+    .tg-hover-close:hover {
+        background: rgba(0, 0, 0, 0.05) !important;
+        color: #333 !important;
+    }
+
+    .tg-hover-loading {
+        color: #666 !important;
     }
 }

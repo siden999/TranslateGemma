@@ -10,6 +10,7 @@ const enableToggle = document.getElementById('enableToggle');
 const translateBtn = document.getElementById('translateBtn');
 const targetLang = document.getElementById('targetLang');
 const showOriginal = document.getElementById('showOriginal');
+const hoverTranslate = document.getElementById('hoverTranslate');
 
 /**
  * 初始化
@@ -60,6 +61,7 @@ async function loadSettings() {
         enableToggle.checked = settings.enabled;
         targetLang.value = settings.targetLang || 'zh-TW';
         showOriginal.checked = settings.showOriginal;
+        hoverTranslate.checked = settings.hoverTranslate !== false; // 預設開啟
     } catch (error) {
         console.error('載入設定失敗:', error);
     }
@@ -72,7 +74,8 @@ async function saveSettings() {
     const settings = {
         enabled: enableToggle.checked,
         targetLang: targetLang.value,
-        showOriginal: showOriginal.checked
+        showOriginal: showOriginal.checked,
+        hoverTranslate: hoverTranslate.checked
     };
 
     try {
@@ -129,6 +132,7 @@ function bindEvents() {
     enableToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
     showOriginal.addEventListener('change', saveSettings);
+    hoverTranslate.addEventListener('change', saveSettings);
 
     // 設定連結
     document.getElementById('settingsLink').addEventListener('click', (e) => {

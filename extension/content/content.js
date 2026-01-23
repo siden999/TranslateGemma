@@ -8,7 +8,8 @@ let settings = {
     enabled: true,           // 預設啟用翻譯
     targetLang: 'zh-TW',
     showOriginal: true,
-    autoTranslate: true      // 自動翻譯
+    autoTranslate: true,     // 自動翻譯
+    hoverTranslate: true     // 滑鼠懸停翻譯
 };
 
 // ============== 狀態管理 ==============
@@ -46,6 +47,11 @@ async function init() {
 
     // 監聽 DOM 變化（動態載入的內容）
     observeDOMChanges();
+
+    // 滑鼠懸停翻譯
+    if (settings.hoverTranslate) {
+        setupHoverTranslation();
+    }
 }
 
 // ============== 自動翻譯入口 ==============
@@ -290,10 +296,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'updateSettings') {
+        const oldHoverSetting = settings.hoverTranslate;
         settings = { ...settings, ...request.settings };
+
         if (settings.enabled && settings.autoTranslate) {
             startAutoTranslate();
         }
+
+        // 動態啟用/停用懸停翻譯
+        if (settings.hoverTranslate && !oldHoverSetting) {
+            setupHoverTranslation();
+        } else if (!settings.hoverTranslate && oldHoverSetting) {
+            removeHoverListeners();
+        }
+
         sendResponse({ success: true });
     }
 
@@ -357,6 +373,182 @@ function handleClickOutside(e) {
     if (popup && !popup.contains(e.target)) {
         removeSelectionPopup();
     }
+}
+
+// ============== 滑鼠懸停翻譯 ==============
+let hoverTimeout = null;
+let currentHoverElement = null;
+let hoverTooltip = null;
+
+function setupHoverTranslation() {
+    console.log('🖱️ 滑鼠懸停翻譯已啟用');
+
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('mouseout', handleMouseOut);
+}
+
+function removeHoverListeners() {
+    console.log('🖱️ 滑鼠懸停翻譯已停用');
+    document.removeEventListener('mouseover', handleMouseOver);
+    document.removeEventListener('mouseout', handleMouseOut);
+    removeHoverTooltip();
+}
+
+function handleMouseOver(e) {
+    if (!settings.enabled || !settings.hoverTranslate) return;
+
+    // 找到最近的可翻譯元素
+    const element = findTranslatableParent(e.target);
+    if (!element || element === currentHoverElement) return;
+
+    // 清除之前的計時器
+    clearTimeout(hoverTimeout);
+    removeHoverTooltip();
+
+    currentHoverElement = element;
+
+    // 延遲 500ms 後顯示翻譯（避免滑鼠快速移動時頻繁觸發）
+    hoverTimeout = setTimeout(async () => {
+        await showHoverTranslation(element);
+    }, 500);
+}
+
+function handleMouseOut(e) {
+    // 檢查是否移動到 tooltip 上
+    if (hoverTooltip && hoverTooltip.contains(e.relatedTarget)) {
+        return;
+    }
+
+    clearTimeout(hoverTimeout);
+
+    // 延遲移除 tooltip（讓用戶有時間將滑鼠移到 tooltip 上）
+    setTimeout(() => {
+        if (!hoverTooltip?.matches(':hover')) {
+            removeHoverTooltip();
+        }
+    }, 300);
+
+    currentHoverElement = null;
+}
+
+function findTranslatableParent(element) {
+    // 向上查找可翻譯的父元素
+    const translatableTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION', 'SPAN', 'DIV'];
+
+    let current = element;
+    while (current && current !== document.body) {
+        // 跳過我們自己的元素
+        if (current.classList?.contains('tg-translation-container') ||
+            current.classList?.contains('tg-hover-tooltip') ||
+            current.classList?.contains('tg-selection-popup')) {
+            return null;
+        }
+
+        if (translatableTags.includes(current.tagName)) {
+            const text = current.textContent.trim();
+            // 確保有足夠的文字且不是目標語言
+            if (text.length >= 10 && text.length <= 2000) {
+                const lang = detectLanguage(text);
+                if (lang !== settings.targetLang.split('-')[0]) {
+                    return current;
+                }
+            }
+        }
+        current = current.parentElement;
+    }
+    return null;
+}
+
+async function showHoverTranslation(element) {
+    const text = element.textContent.trim();
+    if (!text) return;
+
+    // 檢查快取
+    const cacheKey = `hover:${settings.targetLang}:${text.substring(0, 100)}`;
+    let translation = translationCache.get(cacheKey);
+
+    if (!translation) {
+        // 顯示載入中
+        showHoverTooltip(element, '翻譯中...', true);
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'translate',
+                text: text.substring(0, 1000), // 限制長度
+                sourceLang: detectLanguage(text),
+                targetLang: settings.targetLang
+            });
+
+            if (response?.success && response.translation) {
+                translation = response.translation;
+                translationCache.set(cacheKey, translation);
+            } else {
+                removeHoverTooltip();
+                return;
+            }
+        } catch (e) {
+            console.error('懸停翻譯失敗:', e);
+            removeHoverTooltip();
+            return;
+        }
+    }
+
+    // 顯示翻譯結果
+    showHoverTooltip(element, translation, false);
+}
+
+function showHoverTooltip(element, content, isLoading) {
+    removeHoverTooltip();
+
+    const rect = element.getBoundingClientRect();
+
+    hoverTooltip = document.createElement('div');
+    hoverTooltip.className = 'tg-hover-tooltip';
+    hoverTooltip.id = 'tg-hover-tooltip';
+
+    if (isLoading) {
+        hoverTooltip.innerHTML = `<div class="tg-hover-loading">⏳ ${content}</div>`;
+    } else {
+        hoverTooltip.innerHTML = `
+            <div class="tg-hover-header">
+                <span>🌐 TranslateGemma</span>
+                <button class="tg-hover-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+            </div>
+            <div class="tg-hover-content">${content}</div>
+        `;
+    }
+
+    // 計算位置（在元素下方）
+    let top = rect.bottom + window.scrollY + 8;
+    let left = rect.left + window.scrollX;
+
+    // 確保不超出視窗
+    const maxLeft = window.innerWidth - 360;
+    if (left > maxLeft) left = maxLeft;
+    if (left < 10) left = 10;
+
+    hoverTooltip.style.cssText = `
+        position: absolute;
+        top: ${top}px;
+        left: ${left}px;
+        z-index: 2147483646;
+    `;
+
+    document.body.appendChild(hoverTooltip);
+
+    // 監聽 tooltip 的滑鼠離開事件
+    hoverTooltip.addEventListener('mouseleave', () => {
+        setTimeout(removeHoverTooltip, 200);
+    });
+}
+
+function removeHoverTooltip() {
+    if (hoverTooltip) {
+        hoverTooltip.remove();
+        hoverTooltip = null;
+    }
+    const existing = document.getElementById('tg-hover-tooltip');
+    if (existing) existing.remove();
 }
 
 // 啟動
