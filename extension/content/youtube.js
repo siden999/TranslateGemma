@@ -168,12 +168,13 @@ function addYouTubeStyles() {
     style.textContent = `
         .tg-yt-trans {
             color: #ffeb3b !important;
-            font-size: 0.85em !important;
-            margin-top: 4px !important;
-            text-shadow: 1px 1px 3px #000 !important;
-            background: rgba(0,0,0,0.6) !important;
-            padding: 2px 8px !important;
-            border-radius: 3px !important;
+            font-size: 1.3em !important;
+            margin-top: 8px !important;
+            text-shadow: 2px 2px 4px #000 !important;
+            background: rgba(0,0,0,0.75) !important;
+            padding: 6px 14px !important;
+            border-radius: 4px !important;
+            font-weight: 500 !important;
         }
     `;
     document.head.appendChild(style);
