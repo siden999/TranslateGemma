@@ -130,8 +130,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.sync.get({
             enabled: true,
             targetLang: 'zh-TW',
-            showOriginal: true,
-            autoTranslate: true
+            autoTranslate: true,
+            hoverTranslate: true
         }, (settings) => {
             sendResponse(settings);
         });

@@ -5,9 +5,8 @@
 
 // ============== 設定 ==============
 let settings = {
-    enabled: true,           // 預設啟用翻譯
+    enabled: true,           // 啟用整頁翻譯
     targetLang: 'zh-TW',
-    showOriginal: true,
     autoTranslate: true,     // 自動翻譯
     hoverTranslate: true     // 滑鼠懸停翻譯
 };
@@ -52,6 +51,9 @@ async function init() {
     if (settings.hoverTranslate) {
         setupHoverTranslation();
     }
+
+    // 反白選取翻譯（永遠啟用）
+    setupSelectionTranslation();
 }
 
 // ============== 自動翻譯入口 ==============
@@ -375,6 +377,66 @@ function handleClickOutside(e) {
     }
 }
 
+// ============== 反白選取翻譯 ==============
+function setupSelectionTranslation() {
+    console.log('📝 反白選取翻譯已啟用');
+    document.addEventListener('mouseup', handleTextSelection);
+    document.addEventListener('keyup', handleTextSelection);
+}
+
+function handleTextSelection(e) {
+    // 延遲處理，確保選取完成
+    setTimeout(async () => {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        // 檢查是否有有效選取
+        if (!selectedText || selectedText.length < 2 || selectedText.length > 2000) {
+            return;
+        }
+
+        // 檢查是否點擊在我們的元素上
+        if (e.target?.closest('.tg-selection-popup, .tg-hover-tooltip')) {
+            return;
+        }
+
+        // 檢查語言（如果已經是目標語言就不翻譯）
+        const lang = detectLanguage(selectedText);
+        if (lang === settings.targetLang.split('-')[0]) {
+            return;
+        }
+
+        // 直接自動翻譯
+        await translateSelection(selectedText);
+    }, 100);  // 稍微延長等待時間確保選取穩定
+}
+
+async function translateSelection(text) {
+    // 移除舊的彈出框
+    removeSelectionPopup();
+
+    // 顯示載入中
+    showSelectionPopup(text, '翻譯中...', false);
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'translate',
+            text: text,
+            sourceLang: detectLanguage(text),
+            targetLang: settings.targetLang
+        });
+
+        if (response?.success && response.translation) {
+            showSelectionPopup(text, response.translation, false);
+        } else {
+            showSelectionPopup(text, '翻譯失敗', true);
+        }
+    } catch (e) {
+        console.error('選取翻譯失敗:', e);
+        showSelectionPopup(text, '翻譯失敗: ' + e.message, true);
+    }
+}
+
 // ============== 滑鼠懸停翻譯 ==============
 let hoverTimeout = null;
 let currentHoverElement = null;
@@ -395,7 +457,8 @@ function removeHoverListeners() {
 }
 
 function handleMouseOver(e) {
-    if (!settings.enabled || !settings.hoverTranslate) return;
+    // 懸停翻譯獨立於整頁翻譯開關
+    if (!settings.hoverTranslate) return;
 
     // 找到最近的可翻譯元素
     const element = findTranslatableParent(e.target);
