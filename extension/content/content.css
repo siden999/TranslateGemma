@@ -1,89 +1,72 @@
 /**
- * TranslateGemma 翻譯樣式
+ * TranslateGemma 翻譯樣式 v2.0
+ * 優化：避免影響頁面原有佈局
  */
 
-/* 翻譯容器 */
+/* ============== 翻譯容器（安全樣式） ============== */
 .tg-translation-container {
-    margin-top: 8px;
-    margin-bottom: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-left: 4px solid #0ea5e9;
-    border-radius: 0 8px 8px 0;
-    font-size: 0.95em;
-    line-height: 1.6;
-    color: #1e3a5f;
-    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
-    animation: tg-fade-in 0.3s ease-out;
+    /* 使用 !important 確保樣式生效，但不使用 all:initial 避免破壞佈局 */
+    display: block !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 8px 0 !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+    border: none !important;
+    border-left: 4px solid #0ea5e9 !important;
+    border-radius: 0 8px 8px 0 !important;
+    font-size: 0.95em !important;
+    line-height: 1.6 !important;
+    color: #1e3a5f !important;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    animation: tg-fade-in 0.3s ease-out !important;
+    box-sizing: border-box !important;
+    text-align: left !important;
+    /* 避免影響 flex/grid 佈局 */
+    flex: none !important;
+    align-self: stretch !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    z-index: 1 !important;
 }
 
 /* 深色模式 */
 @media (prefers-color-scheme: dark) {
     .tg-translation-container {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-left-color: #38bdf8;
-        color: #e2e8f0;
-        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+        border-left-color: #38bdf8 !important;
+        color: #e2e8f0 !important;
+        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15) !important;
     }
 }
 
 /* 翻譯文字 */
 .tg-translation {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-/* 處理中狀態 */
+/* ============== 處理中狀態（輕量化） ============== */
 .tg-translating {
-    position: relative;
-}
-
-.tg-translating::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(14, 165, 233, 0.05);
+    /* 移除 position:relative，避免影響佈局 */
+    background-color: rgba(14, 165, 233, 0.02) !important;
     border-radius: 4px;
-    animation: tg-pulse 1.5s ease-in-out infinite;
+    transition: background-color 0.3s ease;
 }
 
-/* 已翻譯狀態 */
+/* ============== 已翻譯狀態（輕量化） ============== */
 .tg-translated {
-    border-left: 2px solid #0ea5e9;
-    padding-left: 8px;
-    margin-left: -10px;
+    /* 移除可能影響佈局的樣式 */
 }
 
-/* 滑鼠懸停翻譯提示 */
-.tg-hover-tooltip {
-    position: absolute;
-    z-index: 10000;
-    max-width: 400px;
-    padding: 12px 16px;
-    background: #1e293b;
-    color: #f1f5f9;
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.5;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-    pointer-events: none;
-    animation: tg-fade-in 0.2s ease-out;
-}
-
-.tg-hover-tooltip::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    left: 20px;
-    width: 12px;
-    height: 12px;
-    background: #1e293b;
-    transform: rotate(45deg);
-}
-
-/* 動畫 */
+/* ============== 動畫 ============== */
 @keyframes tg-fade-in {
     from {
         opacity: 0;
@@ -96,65 +79,31 @@
     }
 }
 
-@keyframes tg-pulse {
-
-    0%,
-    100% {
-        opacity: 0.3;
-    }
-
-    50% {
-        opacity: 0.6;
-    }
-}
-
-/* 選取翻譯 */
-::selection {
-    background: rgba(14, 165, 233, 0.2);
-}
-
-/* 確保翻譯容器不會被頁面樣式覆蓋 */
-.tg-translation-container * {
-    all: revert;
-}
-
-.tg-translation-container {
-    all: initial;
-    display: block;
-    margin-top: 8px;
-    margin-bottom: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-left: 4px solid #0ea5e9;
-    border-radius: 0 8px 8px 0;
-    font-size: 0.95em;
-    line-height: 1.6;
-    color: #1e3a5f;
-    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-}
-
 /* ============== 骨架載入效果 ============== */
 .tg-translation-skeleton {
-    margin-top: 8px;
-    margin-bottom: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-left: 4px solid #cbd5e1;
-    border-radius: 0 8px 8px 0;
+    display: block !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    margin: 8px 0 !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-left: 4px solid #cbd5e1 !important;
+    border-radius: 0 8px 8px 0 !important;
+    box-sizing: border-box !important;
 }
 
 .tg-skeleton-line {
-    height: 14px;
-    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-    background-size: 200% 100%;
-    border-radius: 4px;
-    margin-bottom: 8px;
-    animation: tg-shimmer 1.5s infinite;
+    height: 14px !important;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%) !important;
+    background-size: 200% 100% !important;
+    border-radius: 4px !important;
+    margin-bottom: 8px !important;
+    animation: tg-shimmer 1.5s infinite !important;
 }
 
 .tg-skeleton-line:last-child {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
 }
 
 @keyframes tg-shimmer {
@@ -170,82 +119,78 @@
 /* 深色模式骨架 */
 @media (prefers-color-scheme: dark) {
     .tg-translation-skeleton {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-left-color: #475569;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+        border-left-color: #475569 !important;
     }
 
     .tg-skeleton-line {
-        background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
-        background-size: 200% 100%;
+        background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important;
+        background-size: 200% 100% !important;
     }
-}
-
-/* 翻譯中的元素添加微妙高亮 */
-.tg-translating {
-    background-color: rgba(14, 165, 233, 0.03) !important;
-    border-radius: 4px;
-    transition: background-color 0.3s ease;
 }
 
 /* ============== 右鍵選單翻譯彈出框 ============== */
 .tg-selection-popup {
-    position: fixed;
-    width: 320px;
-    max-width: 90vw;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-    animation: tg-popup-in 0.2s ease-out;
-    overflow: hidden;
+    position: fixed !important;
+    width: 320px !important;
+    max-width: 90vw !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    animation: tg-popup-in 0.2s ease-out !important;
+    overflow: hidden !important;
+    z-index: 2147483647 !important;
 }
 
 .tg-popup-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
-    color: white;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%) !important;
+    color: white !important;
 }
 
 .tg-popup-icon {
-    font-size: 16px;
+    font-size: 16px !important;
 }
 
 .tg-popup-title {
-    flex: 1;
-    font-size: 13px;
-    font-weight: 600;
+    flex: 1 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
 }
 
 .tg-popup-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    opacity: 0.8;
-    transition: opacity 0.2s;
-    padding: 0;
-    line-height: 1;
+    background: none !important;
+    border: none !important;
+    color: white !important;
+    font-size: 16px !important;
+    cursor: pointer !important;
+    opacity: 0.8 !important;
+    transition: opacity 0.2s !important;
+    padding: 0 !important;
+    line-height: 1 !important;
 }
 
 .tg-popup-close:hover {
-    opacity: 1;
+    opacity: 1 !important;
 }
 
 .tg-popup-content {
-    padding: 16px;
-    font-size: 15px;
-    line-height: 1.6;
-    color: #1e293b;
-    max-height: 200px;
-    overflow-y: auto;
+    padding: 16px !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+    color: #1e293b !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
 }
 
 .tg-popup-error {
-    color: #dc2626;
+    color: #dc2626 !important;
 }
 
 @keyframes tg-popup-in {
@@ -263,11 +208,11 @@
 /* 深色模式彈出框 */
 @media (prefers-color-scheme: dark) {
     .tg-selection-popup {
-        background: #1e293b;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+        background: #1e293b !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
     }
 
     .tg-popup-content {
-        color: #e2e8f0;
+        color: #e2e8f0 !important;
     }
 }
