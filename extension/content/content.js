@@ -94,10 +94,32 @@ const EXCLUDE_SELECTORS = [
 
 function collectTranslatableElements() {
     const selectors = [
+        // 標準 HTML 元素
         'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'li', 'td', 'th', 'blockquote', 'figcaption',
         'article p', '.article-content p', '.post-content p',
-        '[class*="content"] p', '[class*="article"] p'
+        '[class*="content"] p', '[class*="article"] p',
+
+        // Twitter / X
+        '[data-testid="tweetText"]',
+        '[data-testid="tweetText"] span',
+
+        // Reddit
+        'shreddit-title',
+        '[slot="title"]',
+        '[data-testid="post-title"]',
+        '.Post h3', '.Post h1',
+        'a[data-click-id="body"] h3',
+
+        // Facebook
+        '[data-ad-preview="message"]',
+        '[data-content-type="text"]',
+
+        // 通用 - 較大的 span 和 div（需要額外過濾）
+        'article span[lang]',
+        'article div[lang]',
+        '[role="article"] span',
+        '[role="article"] div[dir="auto"]'
     ].join(', ');
 
     const elements = document.querySelectorAll(selectors);
@@ -559,7 +581,10 @@ function findTranslatableParent(element) {
             return null;
         }
 
-        if (translatableTags.includes(current.tagName)) {
+        if (translatableTags.includes(current.tagName) ||
+            current.hasAttribute('data-testid') ||  // Twitter
+            current.hasAttribute('slot') ||         // Reddit
+            current.hasAttribute('lang')) {         // 有語言標記的元素
             const text = current.textContent.trim();
             // 確保有足夠的文字且不是目標語言
             if (text.length >= 10 && text.length <= 2000) {
