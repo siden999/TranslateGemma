@@ -79,10 +79,13 @@ function detectLanguage(text) {
 }
 
 // ============== 收集可翻譯元素 ==============
-// 需要排除的選擇器（廣告、腳本、iframe 等）
+// 需要排除的選擇器（廣告、腳本、導航等）
 const EXCLUDE_SELECTORS = [
     'script', 'style', 'noscript', 'iframe', 'canvas', 'svg',
     'code', 'pre', 'textarea', 'input',
+    // 導航區域
+    'nav', '[role="navigation"]',
+    // 廣告
     '[class*="ad-"]', '[class*="ads-"]', '[class*="advert"]',
     '[id*="ad-"]', '[id*="ads-"]', '[id*="advert"]',
     '[class*="sponsor"]', '[class*="banner"]',
