@@ -147,27 +147,23 @@ function collectTranslatableElements() {
 // ============== 智能內容偵測 ==============
 function isTranslatableContent(element) {
     const text = element.textContent.trim();
+    const tagName = element.tagName.toUpperCase();
 
-    // 1. 文字長度過濾（太短可能是按鈕或導航）
-    if (text.length < 25) return false;
-    if (text.length > 5000) return false; // 太長可能是整個區塊
+    // 標題 (h1-h6) 的門檻較低，只需 5 字元
+    const isHeading = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tagName);
+    const minLength = isHeading ? 5 : 15;
 
-    // 2. 排除互動元素
+    // 1. 文字長度過濾
+    if (text.length < minLength) return false;
+    if (text.length > 5000) return false;
+
+    // 2. 排除互動元素（但保留包含長文字的連結）
     if (element.closest('button, [role="button"]')) return false;
-    if (element.tagName === 'A' || element.closest('a')) {
-        // 如果是短連結，跳過
-        if (text.length < 50) return false;
-    }
 
-    // 3. 排除導航區域
-    if (element.closest('nav, [role="navigation"], header, footer')) return false;
+    // 3. 排除導航區域（只排除真正的 nav 標籤）
+    if (element.closest('nav, [role="navigation"]')) return false;
 
-    // 4. 排除高連結密度區域（導航欄特徵）
-    const links = element.querySelectorAll('a');
-    const linkTextLength = Array.from(links).reduce((sum, a) => sum + a.textContent.length, 0);
-    if (text.length > 0 && linkTextLength / text.length > 0.7) return false;
-
-    // 5. 排除程式碼內容
+    // 4. 排除程式碼內容
     if (isCodeLikeContent(text)) return false;
 
     return true;
