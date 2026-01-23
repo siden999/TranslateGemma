@@ -259,22 +259,22 @@ async function translateSingleElement({ element, text, lang }) {
 function showLoadingState(element) {
     element.classList.add('tg-translating');
 
-    // 建立骨架載入效果
-    const skeleton = document.createElement('div');
+    // 建立骨架載入效果（內聯版）
+    const skeleton = document.createElement('span');
     skeleton.className = 'tg-translation-skeleton';
     skeleton.innerHTML = `
-        <div class="tg-skeleton-line" style="width: 90%"></div>
-        <div class="tg-skeleton-line" style="width: 75%"></div>
-        <div class="tg-skeleton-line" style="width: 60%"></div>
+        <span class="tg-skeleton-line" style="width: 90%"></span>
+        <span class="tg-skeleton-line" style="width: 75%"></span>
+        <span class="tg-skeleton-line" style="width: 60%"></span>
     `;
-    element.insertAdjacentElement('afterend', skeleton);
+    element.appendChild(skeleton);
 }
 
 // ============== 移除載入狀態 ==============
 function removeLoadingState(element) {
     element.classList.remove('tg-translating');
-    const skeleton = element.nextElementSibling;
-    if (skeleton && skeleton.classList.contains('tg-translation-skeleton')) {
+    const skeleton = element.querySelector('.tg-translation-skeleton');
+    if (skeleton) {
         skeleton.remove();
     }
 }
@@ -286,16 +286,18 @@ function insertTranslation(element, translation) {
 
     element.classList.add('tg-translated');
 
-    // 建立翻譯容器
-    const container = document.createElement('div');
-    container.className = 'tg-translation-container';
+    // 建立翻譯容器 - 放在原文元素內部以避免破壞 flex/grid 佈局
+    const container = document.createElement('span');
+    container.className = 'tg-translation-inline';
 
-    const translationEl = document.createElement('div');
+    const translationEl = document.createElement('span');
     translationEl.className = 'tg-translation';
     translationEl.textContent = translation;
 
     container.appendChild(translationEl);
-    element.insertAdjacentElement('afterend', container);
+
+    // 插入到元素內部末尾（而非作為兄弟元素）
+    element.appendChild(container);
 }
 
 // ============== 滾動處理 ==============

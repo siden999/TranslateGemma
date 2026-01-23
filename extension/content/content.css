@@ -3,7 +3,31 @@
  * 優化：避免影響頁面原有佈局
  */
 
-/* ============== 翻譯容器（安全樣式） ============== */
+/* ============== 翻譯容器（內聯版，避免破壞佈局） ============== */
+.tg-translation-inline {
+    display: block !important;
+    margin-top: 8px !important;
+    padding: 10px 14px !important;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+    border-left: 3px solid #f59e0b !important;
+    border-radius: 0 6px 6px 0 !important;
+    font-size: 0.92em !important;
+    line-height: 1.5 !important;
+    color: #78350f !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    animation: tg-fade-in 0.3s ease-out !important;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+    .tg-translation-inline {
+        background: linear-gradient(135deg, #422006 0%, #451a03 100%) !important;
+        border-left-color: #fbbf24 !important;
+        color: #fef3c7 !important;
+    }
+}
+
+/* ============== 舊版翻譯容器（保留相容） ============== */
 .tg-translation-container {
     /* 使用 !important 確保樣式生效，但不使用 all:initial 避免破壞佈局 */
     display: block !important;
