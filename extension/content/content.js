@@ -103,64 +103,74 @@ const EXCLUDE_SELECTORS = [
 ].join(', ');
 
 function collectTranslatableElements() {
-    const selectors = [
-        // 標準 HTML 元素
-        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'li', 'td', 'th', 'blockquote', 'figcaption',
-        'article p', '.article-content p', '.post-content p',
-        '[class*="content"] p', '[class*="article"] p',
+    // 優先從語義區域收集（article, main）
+    const contentAreas = document.querySelectorAll('article, main, [role="main"], [role="article"], .content, .post, .entry');
 
-        // Twitter / X
-        '[data-testid="tweetText"]',
-        '[data-testid="tweetText"] span',
+    // 如果沒有語義區域，則從 body 收集
+    const searchAreas = contentAreas.length > 0 ? contentAreas : [document.body];
 
-        // Reddit
-        'shreddit-title',
-        '[slot="title"]',
-        '[data-testid="post-title"]',
-        '.Post h3', '.Post h1',
-        'a[data-click-id="body"] h3',
+    // 基本的內容選擇器
+    const contentSelectors = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption';
 
-        // Facebook
-        '[data-ad-preview="message"]',
-        '[data-content-type="text"]',
-
-        // 通用 - 較大的 span 和 div（需要額外過濾）
-        'article span[lang]',
-        'article div[lang]',
-        '[role="article"] span',
-        '[role="article"] div[dir="auto"]'
-    ].join(', ');
-
-    const elements = document.querySelectorAll(selectors);
     const result = [];
 
-    for (const element of elements) {
-        // 跳過已處理的元素
-        if (translatedElements.has(element)) continue;
+    for (const area of searchAreas) {
+        const elements = area.querySelectorAll(contentSelectors);
 
-        // 跳過隱藏元素
-        if (element.offsetParent === null) continue;
+        for (const element of elements) {
+            // 跳過已處理的元素
+            if (translatedElements.has(element)) continue;
 
-        // 跳過廣告和腳本區塊
-        if (element.closest(EXCLUDE_SELECTORS)) continue;
-        if (element.matches(EXCLUDE_SELECTORS)) continue;
+            // 跳過隱藏元素
+            if (element.offsetParent === null) continue;
 
-        // 跳過太短的文字
-        const text = element.textContent.trim();
-        if (text.length < 15) continue;
+            // 跳過廣告區塊
+            if (element.closest(EXCLUDE_SELECTORS)) continue;
+            if (element.matches && element.matches(EXCLUDE_SELECTORS)) continue;
 
-        // 跳過看起來像代碼的內容（包含程式語法特徵）
-        if (isCodeLikeContent(text)) continue;
+            // 🔑 核心過濾：智能內容偵測
+            if (!isTranslatableContent(element)) continue;
 
-        // 跳過已是目標語言
-        const lang = detectLanguage(text);
-        if (lang === settings.targetLang.split('-')[0]) continue;
+            const text = element.textContent.trim();
+            const lang = detectLanguage(text);
 
-        result.push({ element, text, lang });
+            // 跳過已是目標語言
+            if (lang === settings.targetLang.split('-')[0]) continue;
+
+            result.push({ element, text, lang });
+        }
     }
 
     return result;
+}
+
+// ============== 智能內容偵測 ==============
+function isTranslatableContent(element) {
+    const text = element.textContent.trim();
+
+    // 1. 文字長度過濾（太短可能是按鈕或導航）
+    if (text.length < 25) return false;
+    if (text.length > 5000) return false; // 太長可能是整個區塊
+
+    // 2. 排除互動元素
+    if (element.closest('button, [role="button"]')) return false;
+    if (element.tagName === 'A' || element.closest('a')) {
+        // 如果是短連結，跳過
+        if (text.length < 50) return false;
+    }
+
+    // 3. 排除導航區域
+    if (element.closest('nav, [role="navigation"], header, footer')) return false;
+
+    // 4. 排除高連結密度區域（導航欄特徵）
+    const links = element.querySelectorAll('a');
+    const linkTextLength = Array.from(links).reduce((sum, a) => sum + a.textContent.length, 0);
+    if (text.length > 0 && linkTextLength / text.length > 0.7) return false;
+
+    // 5. 排除程式碼內容
+    if (isCodeLikeContent(text)) return false;
+
+    return true;
 }
 
 // 檢測是否為程式碼內容
