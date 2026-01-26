@@ -8,47 +8,7 @@ const API_BASE_URL = 'http://localhost:8080';
 // 翻譯快取
 const translationCache = new Map();
 
-// ============== 右鍵選單設置 ==============
-chrome.runtime.onInstalled.addListener(() => {
-    // 建立右鍵選單項目
-    chrome.contextMenus.create({
-        id: 'translateSelection',
-        title: '🌐 翻譯「%s」',
-        contexts: ['selection']
-    });
-
-    console.log('右鍵選單已建立');
-});
-
-// 監聽右鍵選單點擊
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-    if (info.menuItemId === 'translateSelection' && info.selectionText) {
-        const selectedText = info.selectionText.trim();
-
-        if (selectedText.length > 0) {
-            try {
-                // 翻譯選取的文字
-                const translation = await translateText(selectedText, 'auto', 'zh-TW');
-
-                // 發送翻譯結果給 content script 顯示
-                chrome.tabs.sendMessage(tab.id, {
-                    action: 'showSelectionTranslation',
-                    originalText: selectedText,
-                    translation: translation
-                });
-            } catch (error) {
-                console.error('右鍵選單翻譯失敗:', error);
-                // 通知用戶翻譯失敗
-                chrome.tabs.sendMessage(tab.id, {
-                    action: 'showSelectionTranslation',
-                    originalText: selectedText,
-                    translation: '翻譯失敗，請確認伺服器是否運作中',
-                    isError: true
-                });
-            }
-        }
-    }
-});
+// 右鍵選單已移除
 
 /**
  * 檢查 API 伺服器是否運作中
@@ -130,8 +90,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.sync.get({
             enabled: true,
             targetLang: 'zh-TW',
-            autoTranslate: true,
-            hoverTranslate: true
+            autoTranslate: true
         }, (settings) => {
             sendResponse(settings);
         });
@@ -160,4 +119,4 @@ chrome.commands.onCommand.addListener((command) => {
     }
 });
 
-console.log('TranslateGemma Background Service Worker 已啟動（含右鍵選單）');
+console.log('TranslateGemma Background Service Worker 已啟動');

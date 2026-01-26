@@ -7,9 +7,7 @@
 const statusDot = document.querySelector('.status-dot');
 const statusText = document.querySelector('.status-text');
 const enableToggle = document.getElementById('enableToggle');
-const translateBtn = document.getElementById('translateBtn');
 const targetLang = document.getElementById('targetLang');
-const hoverTranslate = document.getElementById('hoverTranslate');
 
 /**
  * 初始化
@@ -36,17 +34,14 @@ async function checkServerStatus() {
             statusDot.classList.add('online');
             statusDot.classList.remove('offline');
             statusText.textContent = '伺服器運作中';
-            translateBtn.disabled = false;
         } else {
             statusDot.classList.add('offline');
             statusDot.classList.remove('online');
             statusText.textContent = '伺服器離線';
-            translateBtn.disabled = true;
         }
     } catch (error) {
         statusDot.classList.add('offline');
         statusText.textContent = '連線失敗';
-        translateBtn.disabled = true;
     }
 }
 
@@ -59,7 +54,6 @@ async function loadSettings() {
 
         enableToggle.checked = settings.enabled;
         targetLang.value = settings.targetLang || 'zh-TW';
-        hoverTranslate.checked = settings.hoverTranslate !== false; // 預設開啟
     } catch (error) {
         console.error('載入設定失敗:', error);
     }
@@ -71,8 +65,7 @@ async function loadSettings() {
 async function saveSettings() {
     const settings = {
         enabled: enableToggle.checked,
-        targetLang: targetLang.value,
-        hoverTranslate: hoverTranslate.checked
+        targetLang: targetLang.value
     };
 
     try {
@@ -95,46 +88,21 @@ async function saveSettings() {
 }
 
 /**
- * 翻譯當前頁面
- */
-async function translateCurrentPage() {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (tab) {
-            await chrome.tabs.sendMessage(tab.id, { action: 'translatePage' });
-
-            // 更新按鈕狀態
-            translateBtn.textContent = '翻譯中...';
-            translateBtn.disabled = true;
-
-            setTimeout(() => {
-                translateBtn.innerHTML = '<span class="btn-icon">📖</span> 翻譯此頁面';
-                translateBtn.disabled = false;
-            }, 2000);
-        }
-    } catch (error) {
-        console.error('翻譯頁面失敗:', error);
-    }
-}
-
-/**
  * 綁定事件
  */
 function bindEvents() {
-    // 翻譯按鈕
-    translateBtn.addEventListener('click', translateCurrentPage);
-
     // 設定變更
     enableToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
-    hoverTranslate.addEventListener('change', saveSettings);
 
     // 設定連結
-    document.getElementById('settingsLink').addEventListener('click', (e) => {
-        e.preventDefault();
-        chrome.runtime.openOptionsPage();
-    });
+    const settingsLink = document.getElementById('settingsLink');
+    if (settingsLink) {
+        settingsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            chrome.runtime.openOptionsPage();
+        });
+    }
 }
 
 // 初始化

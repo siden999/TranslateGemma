@@ -95,6 +95,9 @@ async def translate(request: TranslateRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="翻譯文字不能為空")
     
+    if len(request.text) > 5000:
+        raise HTTPException(status_code=400, detail="翻譯文字過長 (上限 5000 字元)")
+    
     try:
         translation = translator.translate(
             text=request.text,
@@ -117,5 +120,6 @@ if __name__ == "__main__":
     # 取得 port，預設 8080
     port = int(os.environ.get("PORT", 8080))
     
-    print(f"🌐 啟動 TranslateGemma 伺服器於 http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"🌐 啟動 TranslateGemma 伺服器於 http://127.0.0.1:{port}")
+    # 資安修正：僅監聽本機介面 (127.0.0.1)，防止外部網路連線
+    uvicorn.run(app, host="127.0.0.1", port=port)
