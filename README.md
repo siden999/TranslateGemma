@@ -57,6 +57,15 @@
 
 ### 1️⃣ 安裝與啟動伺服器
 
+#### 方式 A：一鍵啟動 (推薦)
+
+- **Windows**: 點擊兩下 `start_server_win.bat`
+- **macOS**: 點擊兩下 `start_server_mac.command`
+
+> 注意：首次使用仍需照下方「開發者手動安裝」步驟先安裝 Python 環境與模型。
+
+#### 方式 B：開發者手動安裝
+
 #### macOS 使用者
 
 1. 開啟終端機 (Terminal)。

@@ -1,6 +1,6 @@
 /**
- * TranslateGemma YouTube 翻譯腳本 v3.0
- * 功能：雙語字幕、標題翻譯、說明與留言翻譯
+ * TranslateGemma YouTube 翻譯腳本 v3.1
+ * 功能：雙語字幕、標題翻譯、說明與留言翻譯、推薦影片翻譯 (全域偵測版)
  */
 
 // 設定
@@ -42,6 +42,7 @@ async function initYouTube() {
         waitForCaptionContainer();
         waitForTitleAndDescription();
         waitForComments();
+        waitForRelatedVideos();
     }
 }
 
@@ -266,48 +267,49 @@ async function translateComment(commentEl) {
 // 4. 右側推薦影片翻譯
 // ==========================================
 
+// 用來檢測元素可見性的 Observer (共用)
+const sidebarIntersectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            translateRelatedVideo(entry.target);
+            sidebarIntersectionObserver.unobserve(entry.target);
+        }
+    });
+}, { rootMargin: '200px' });
+
 function waitForRelatedVideos() {
-    const secondary = document.querySelector('#secondary');
-    if (!secondary) {
-        setTimeout(waitForRelatedVideos, 3000);
-        return;
-    }
-
-    // 使用 IntersectionObserver 比較高效
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                translateRelatedVideo(entry.target);
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { rootMargin: '200px' });
-
-    // 監聽新載入的推薦影片
-    const relatedObserver = new MutationObserver((mutations) => {
+    // 改為全域監聽，因為 #secondary 不一定存在 (例如劇院模式或某些版面)
+    const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             mutation.addedNodes.forEach(node => {
+                // 1. 直接是影片卡片
                 if (node.nodeName === 'YTD-COMPACT-VIDEO-RENDERER') {
-                    observer.observe(node);
+                    sidebarIntersectionObserver.observe(node);
+                }
+                // 2. 或是容器內包含影片卡片 (例如 AJAX 載入了一整塊內容)
+                if (node.nodeType === 1 && node.querySelectorAll) {
+                    node.querySelectorAll('ytd-compact-video-renderer').forEach(child => {
+                        sidebarIntersectionObserver.observe(child);
+                    });
                 }
             });
         }
     });
 
-    const itemsContainer = secondary.querySelector('#items');
-    if (itemsContainer) {
-        relatedObserver.observe(itemsContainer, { childList: true, subtree: true });
-    }
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // 初始影片
-    document.querySelectorAll('ytd-compact-video-renderer').forEach(node => observer.observe(node));
+    // 處理當前已經存在的元素
+    document.querySelectorAll('ytd-compact-video-renderer').forEach(node => {
+        sidebarIntersectionObserver.observe(node);
+    });
 }
 
 async function translateRelatedVideo(element) {
     if (element.dataset.tgProcessed) return;
     element.dataset.tgProcessed = 'true';
 
-    const titleEl = element.querySelector('#video-title');
+    // 嘗試多種標題選擇器，因為 YouTube 結構可能會變
+    const titleEl = element.querySelector('#video-title') || element.querySelector('span#video-title');
     if (!titleEl) return;
 
     const text = titleEl.textContent.trim();
@@ -316,12 +318,22 @@ async function translateRelatedVideo(element) {
     // 翻譯
     const translation = await translateText(text, ytSettings.targetLang);
     if (translation) {
+        // 檢查是否已經插入過
+        if (element.querySelector('.tg-related-title-trans')) return;
+
         const transEl = document.createElement('div');
         transEl.className = 'tg-related-title-trans';
         transEl.textContent = translation;
 
-        // 插入到標題下方
-        titleEl.parentElement.insertBefore(transEl, titleEl.nextSibling);
+        // 插入到標題容器中，通常是標題的下一個兄弟節點，或者 parent 的最後
+        // 為了排版美觀，嘗試插入在 metadata 之前
+        const meta = element.querySelector('#metadata-line') || element.querySelector('.secondary-metadata');
+        if (meta && meta.parentElement) {
+            meta.parentElement.insertBefore(transEl, meta);
+        } else {
+            // Fallback: 直接放在標題後面
+            titleEl.parentElement.appendChild(transEl);
+        }
     }
 }
 
