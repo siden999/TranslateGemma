@@ -37,6 +37,7 @@ cat > "$PLIST" <<PLIST
     <array>
         <string>$LAUNCHER_DIR/.venv/bin/python</string>
         <string>$LAUNCHER_DIR/launcher.py</string>
+        <string>--no-tray</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

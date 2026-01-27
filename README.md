@@ -57,6 +57,7 @@
 - **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
 
 > 注意：首次啟動會自動建立環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
+> 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
 
 **一鍵移除**
 - **macOS**：執行 `launcher/uninstall_mac.command`

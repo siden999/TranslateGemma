@@ -244,6 +244,7 @@ def run_tray(manager: ServerManager, httpd: ThreadingHTTPServer):
 
 def main():
     parser = argparse.ArgumentParser(description="TranslateGemma Launcher")
+    parser.add_argument("--tray", action="store_true", help="Enable tray UI")
     parser.add_argument("--no-tray", action="store_true", help="Disable tray UI")
     parser.add_argument("--no-auto-start", action="store_true", help="Do not auto start server")
     args = parser.parse_args()
@@ -261,7 +262,12 @@ def main():
     if AUTO_START and not args.no_auto_start:
         manager.start()
 
+    use_tray_env = os.environ.get("TG_TRAY", "0") == "1"
+    use_tray = args.tray or use_tray_env
     if args.no_tray:
+        use_tray = False
+
+    if not use_tray:
         try:
             while True:
                 time.sleep(1)

@@ -29,8 +29,9 @@ if (-not (Test-Path ".venv")) {
 $taskName = "TranslateGemma Launcher"
 $launcherPath = Join-Path $launcherDir "launcher.py"
 $pythonPath = Join-Path $launcherDir ".venv\Scripts\python.exe"
+$args = "--no-tray"
 
 schtasks /Delete /TN "$taskName" /F | Out-Null
-schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$pythonPath\" \"$launcherPath\"" | Out-Null
+schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$pythonPath\" \"$launcherPath\" $args" | Out-Null
 
 Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor Green

@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $launcherDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$rootDir = Split-Path -Parent $launcherDir
 
 # 嘗試讓 Launcher 自行退出
 try {
@@ -18,7 +19,11 @@ try {
 }
 
 # 延遲刪除目錄（避免腳本執行中被刪）
-$cmd = "timeout /t 2 >nul & rmdir /s /q \"$launcherDir\""
-Start-Process -WindowStyle Hidden -FilePath cmd.exe -ArgumentList "/c $cmd"
+if (Test-Path (Join-Path $rootDir ".git")) {
+    Write-Host "偵測到原始碼資料夾，保留 launcher 目錄" -ForegroundColor Yellow
+} else {
+    $cmd = "timeout /t 2 >nul & rmdir /s /q \"$launcherDir\""
+    Start-Process -WindowStyle Hidden -FilePath cmd.exe -ArgumentList "/c $cmd"
+}
 
 Write-Host "Launcher 已移除" -ForegroundColor Green
