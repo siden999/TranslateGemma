@@ -378,15 +378,16 @@ function addYouTubeStyles() {
         }
         /* 留言翻譯 */
         .tg-comment-trans {
-            color: #888;
+            color: #eee;
             font-size: 1.3rem;
             margin-top: 6px;
             padding-left: 10px;
-            border-left: 2px solid #555;
+            border-left: 3px solid #3ea6ff;
+            line-height: 1.5;
         }
         /* 推薦影片標題翻譯 */
         .tg-related-title-trans {
-            color: #999;
+            color: #bbb;
             font-size: 1.2rem;
             margin-top: 4px;
             margin-bottom: 4px;
