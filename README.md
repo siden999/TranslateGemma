@@ -43,7 +43,7 @@
 | 作業系統 | macOS 12+ / Windows 10+ | macOS 14+ / Windows 11 |
 | Python | 3.10+ | 3.11+ |
 | 記憶體 | 8GB RAM | 16GB+ RAM |
-| 瀏覽器 | Chrome | Chrome / Edge (Chromium) |
+| 瀏覽器 | Chrome | Chrome |
 
 ---
 
