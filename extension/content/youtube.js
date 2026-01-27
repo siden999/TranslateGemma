@@ -19,6 +19,9 @@ let isProcessing = false;
 let debounceTimer = null;
 let spaTimer = null;
 let contextInvalidated = false;
+let captionFallbackTimer = null;
+let captionCheckAttempts = 0;
+let lastErrorBannerAt = 0;
 
 const TG_RELOAD_KEY = 'tgAutoReloadedAt';
 
@@ -60,6 +63,10 @@ function stopObservers() {
     if (spaTimer) {
         clearInterval(spaTimer);
         spaTimer = null;
+    }
+    if (captionFallbackTimer) {
+        clearInterval(captionFallbackTimer);
+        captionFallbackTimer = null;
     }
 }
 
@@ -148,6 +155,14 @@ async function translateText(text, targetLang = 'zh-TW') {
             translatedSubtitles.set(text, response.translation);
             return response.translation;
         }
+        if (response?.success === false) {
+            const now = Date.now();
+            if (now - lastErrorBannerAt > 5000) {
+                lastErrorBannerAt = now;
+                showReloadBanner(`翻譯失敗：${response.error || '未知錯誤'}`, false);
+            }
+            console.warn('翻譯回應失敗:', response?.error);
+        }
     } catch (e) {
         if (isInvalidatedError(e)) {
             handleContextInvalidated(e.message || 'translate failed');
@@ -166,9 +181,14 @@ function waitForCaptionContainer() {
     // 檢查影片播放器字幕容器
     const checkCaptions = setInterval(() => {
         const container = document.querySelector('.ytp-caption-window-container');
+        captionCheckAttempts += 1;
         if (container) {
             clearInterval(checkCaptions);
             setupSubtitleObserver(container);
+            processSubtitles();
+        } else if (captionCheckAttempts >= 10 && !captionFallbackTimer) {
+            // 找不到字幕容器時的保底：定期掃描字幕片段
+            captionFallbackTimer = setInterval(processSubtitles, 1000);
         }
     }, 2000);
 }
