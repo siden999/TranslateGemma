@@ -267,74 +267,223 @@ async function translateComment(commentEl) {
 // 4. 右側推薦影片翻譯
 // ==========================================
 
+// 右側推薦卡片選擇器 (涵蓋常見類型)
+const SIDEBAR_ITEM_SELECTOR = [
+    'ytd-compact-video-renderer',
+    'ytd-compact-playlist-renderer',
+    'ytd-compact-radio-renderer',
+    'ytd-compact-movie-renderer',
+    'ytd-compact-grid-video-renderer'
+].join(',');
+
+const SIDEBAR_TITLE_SELECTOR = [
+    '#video-title',
+    'a#video-title',
+    'yt-formatted-string#video-title',
+    '#video-title-link',
+    '#title',
+    'a#title',
+    'yt-formatted-string#title',
+    'a[title][href*="watch"]',
+    'a[aria-label][href*="watch"]'
+].join(',');
+
+function findSidebarContainer() {
+    return document.querySelector('#secondary') ||
+        document.querySelector('#related') ||
+        document.querySelector('ytd-watch-next-secondary-results-renderer') ||
+        document.body;
+}
+
+function enqueueSidebarElement(el) {
+    if (!el || !el.matches || !el.matches(SIDEBAR_ITEM_SELECTOR)) return;
+    sidebarIntersectionObserver.observe(el);
+}
+
 // 用來檢測元素可見性的 Observer (共用)
 const sidebarIntersectionObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            translateRelatedVideo(entry.target);
-            sidebarIntersectionObserver.unobserve(entry.target);
-        }
+        if (!entry.isIntersecting) return;
+        if (entry.target.dataset.tgProcessing === 'true') return;
+        translateRelatedVideo(entry.target);
     });
 }, { rootMargin: '200px' });
 
+let sidebarScanTimer = null;
+
+function startSidebarTitleScanner() {
+    if (sidebarScanTimer) return;
+    sidebarScanTimer = setInterval(() => {
+        const container = findSidebarContainer();
+        if (!container || container === document.body) return;
+        container.querySelectorAll(SIDEBAR_TITLE_SELECTOR).forEach(titleEl => {
+            if (titleEl.closest && titleEl.closest(SIDEBAR_ITEM_SELECTOR)) {
+                enqueueSidebarElement(titleEl.closest(SIDEBAR_ITEM_SELECTOR));
+            } else {
+                translateSidebarTitleElement(titleEl);
+            }
+        });
+    }, 2500);
+}
+
 function waitForRelatedVideos() {
+    const root = findSidebarContainer();
     // 改為全域監聽，因為 #secondary 不一定存在 (例如劇院模式或某些版面)
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
+            if (mutation.type === 'characterData') {
+                const parent = mutation.target.parentElement;
+                const card = parent && parent.closest ? parent.closest(SIDEBAR_ITEM_SELECTOR) : null;
+                if (card) enqueueSidebarElement(card);
+                continue;
+            }
             mutation.addedNodes.forEach(node => {
+                if (node.nodeType !== 1) return;
                 // 1. 直接是影片卡片
-                if (node.nodeName === 'YTD-COMPACT-VIDEO-RENDERER') {
-                    sidebarIntersectionObserver.observe(node);
-                }
+                if (node.matches && node.matches(SIDEBAR_ITEM_SELECTOR)) enqueueSidebarElement(node);
                 // 2. 或是容器內包含影片卡片 (例如 AJAX 載入了一整塊內容)
-                if (node.nodeType === 1 && node.querySelectorAll) {
-                    node.querySelectorAll('ytd-compact-video-renderer').forEach(child => {
-                        sidebarIntersectionObserver.observe(child);
+                if (node.querySelectorAll) {
+                    node.querySelectorAll(SIDEBAR_ITEM_SELECTOR).forEach(child => {
+                        enqueueSidebarElement(child);
                     });
                 }
             });
         }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
 
     // 處理當前已經存在的元素
-    document.querySelectorAll('ytd-compact-video-renderer').forEach(node => {
-        sidebarIntersectionObserver.observe(node);
+    document.querySelectorAll(SIDEBAR_ITEM_SELECTOR).forEach(node => {
+        enqueueSidebarElement(node);
     });
+
+    // 保底掃描 (避免 YouTube 延遲填入標題或 DOM 重用)
+    startSidebarTitleScanner();
 }
 
 async function translateRelatedVideo(element) {
-    if (element.dataset.tgProcessed) return;
-    element.dataset.tgProcessed = 'true';
+    if (element.dataset.tgProcessing === 'true') return;
 
     // 嘗試多種標題選擇器，因為 YouTube 結構可能會變
-    const titleEl = element.querySelector('#video-title') || element.querySelector('span#video-title');
+    const titleEl =
+        element.querySelector('#video-title') ||
+        element.querySelector('a#video-title') ||
+        element.querySelector('yt-formatted-string#video-title') ||
+        element.querySelector('#video-title-link') ||
+        element.querySelector('#title') ||
+        element.querySelector('a#title') ||
+        element.querySelector('yt-formatted-string#title') ||
+        element.querySelector('a[title][href*="watch"]') ||
+        element.querySelector('a[aria-label][href*="watch"]');
     if (!titleEl) return;
 
-    const text = titleEl.textContent.trim();
-    if (!text || /[\u4e00-\u9fff]/.test(text)) return; // 略過中文
+    let text = getSidebarTitleText(titleEl);
+    if (!text) {
+        scheduleRelatedVideoRetry(element, () => translateRelatedVideo(element));
+        return;
+    }
+    if (element.dataset.tgLastText === text && element.querySelector('.tg-related-title-trans')) {
+        return;
+    }
+    if (/[\u4e00-\u9fff]/.test(text)) {
+        element.dataset.tgLastText = text;
+        return;
+    }
 
     // 翻譯
+    element.dataset.tgProcessing = 'true';
     const translation = await translateText(text, ytSettings.targetLang);
-    if (translation) {
-        // 檢查是否已經插入過
-        if (element.querySelector('.tg-related-title-trans')) return;
+    element.dataset.tgProcessing = 'false';
 
-        const transEl = document.createElement('div');
-        transEl.className = 'tg-related-title-trans';
-        transEl.textContent = translation;
-
-        // 插入到標題容器中，通常是標題的下一個兄弟節點，或者 parent 的最後
-        // 為了排版美觀，嘗試插入在 metadata 之前
-        const meta = element.querySelector('#metadata-line') || element.querySelector('.secondary-metadata');
-        if (meta && meta.parentElement) {
-            meta.parentElement.insertBefore(transEl, meta);
-        } else {
-            // Fallback: 直接放在標題後面
-            titleEl.parentElement.appendChild(transEl);
-        }
+    if (!translation) {
+        scheduleRelatedVideoRetry(element, () => translateRelatedVideo(element));
+        return;
     }
+
+    element.dataset.tgLastText = text;
+
+    let transEl = element.querySelector('.tg-related-title-trans');
+    if (!transEl) {
+        transEl = document.createElement('div');
+        transEl.className = 'tg-related-title-trans';
+    }
+    transEl.textContent = translation;
+
+    // 插入到標題容器中，通常是標題的下一個兄弟節點，或者 parent 的最後
+    // 為了排版美觀，嘗試插入在 metadata 之前
+    const meta = element.querySelector('#metadata-line') || element.querySelector('.secondary-metadata');
+    if (meta && meta.parentElement) {
+        meta.parentElement.insertBefore(transEl, meta);
+    } else if (titleEl.parentElement) {
+        // Fallback: 直接放在標題後面
+        if (!transEl.parentElement) titleEl.parentElement.appendChild(transEl);
+    }
+}
+
+function translateSidebarTitleElement(titleEl) {
+    const anchor = titleEl.closest ? (titleEl.closest('a#video-title, a#title') || titleEl) : titleEl;
+    if (!anchor || anchor.dataset.tgProcessing === 'true') return;
+
+    let text = getSidebarTitleText(titleEl);
+    if (!text) {
+        scheduleRelatedVideoRetry(anchor, () => translateSidebarTitleElement(titleEl));
+        return;
+    }
+    if (anchor.dataset.tgLastText === text) {
+        const container = anchor.parentElement || anchor;
+        if (container && container.querySelector('.tg-related-title-trans')) return;
+    }
+    if (/[\u4e00-\u9fff]/.test(text)) {
+        anchor.dataset.tgLastText = text;
+        return;
+    }
+
+    anchor.dataset.tgProcessing = 'true';
+    translateText(text, ytSettings.targetLang).then(translation => {
+        anchor.dataset.tgProcessing = 'false';
+        if (!translation) {
+            scheduleRelatedVideoRetry(anchor, () => translateSidebarTitleElement(titleEl));
+            return;
+        }
+        anchor.dataset.tgLastText = text;
+
+        const container = anchor.parentElement || anchor;
+        if (!container) return;
+        let transEl = container.querySelector('.tg-related-title-trans');
+        if (!transEl) {
+            transEl = document.createElement('div');
+            transEl.className = 'tg-related-title-trans';
+        }
+        transEl.textContent = translation;
+        if (!transEl.parentElement) anchor.insertAdjacentElement('afterend', transEl);
+    });
+}
+
+function getSidebarTitleText(titleEl) {
+    if (!titleEl) return '';
+    const titleAttr = titleEl.getAttribute ? titleEl.getAttribute('title') : null;
+    const ariaLabel = titleEl.getAttribute ? titleEl.getAttribute('aria-label') : null;
+    let text = (titleAttr || titleEl.textContent || '').trim();
+    if (!text && ariaLabel) text = ariaLabel.trim();
+    return text;
+}
+
+function scheduleRelatedVideoRetry(element, retryFn) {
+    const maxRetries = 5;
+    const retryCount = parseInt(element.dataset.tgRetryCount || '0', 10);
+    if (retryCount >= maxRetries) {
+        return;
+    }
+    element.dataset.tgRetryCount = String(retryCount + 1);
+    const delay = Math.min(2000, 400 * (retryCount + 1));
+    setTimeout(() => {
+        if (typeof retryFn === 'function') {
+            retryFn();
+        } else {
+            translateRelatedVideo(element);
+        }
+    }, delay);
 }
 
 // ==========================================
@@ -393,6 +542,8 @@ function addYouTubeStyles() {
             margin-bottom: 4px;
             line-height: 1.3;
             display: block;
+            border-left: 3px solid #3ea6ff;
+            padding-left: 8px;
         }
     `;
     document.head.appendChild(style);

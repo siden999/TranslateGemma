@@ -1,10 +1,6 @@
 # TranslateGemma 沉浸式翻譯 (YouTube 專用版)
 
 <p align="center">
-  <img src="extension/icons/icon128.png" alt="TranslateGemma Logo" width="128">
-</p>
-
-<p align="center">
   <strong>最純淨的 YouTube 本地離線翻譯工具</strong><br>
   使用 Google TranslateGemma-4b-it 模型，完全在你的電腦上運行
 </p>
