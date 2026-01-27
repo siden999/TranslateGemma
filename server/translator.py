@@ -106,6 +106,52 @@ class TranslateGemmaTranslator:
         self.is_loaded = True
         print("✅ 模型載入完成！")
 
+    def translate(
+        self,
+        text: str,
+        source_lang: str = "en",
+        target_lang: str = "zh-TW"
+    ) -> str:
+        """
+        翻譯文字
+
+        參數:
+            text: 待翻譯的文字
+            source_lang: 來源語言代碼
+            target_lang: 目標語言代碼
+
+        回傳:
+            翻譯後的文字
+        """
+        if not self.is_loaded or not self.model:
+            raise RuntimeError("模型尚未載入")
+
+        # 取得語言名稱
+        source_name = LANGUAGE_CODES.get(source_lang, source_lang)
+        target_name = LANGUAGE_CODES.get(target_lang, target_lang)
+
+        # 建構 TranslateGemma 專用的 prompt 格式
+        # 參考: https://huggingface.co/google/translategemma-4b-it
+        prompt = f"""<start_of_turn>user
+Translate the following text from {source_name} to {target_name}:
+
+{text}<end_of_turn>
+<start_of_turn>model
+"""
+
+        # 進行推論
+        response = self.model(
+            prompt,
+            max_tokens=self.n_ctx,
+            stop=["<end_of_turn>", "<eos>"],
+            echo=False
+        )
+
+        # 提取翻譯結果
+        translation = response["choices"][0]["text"].strip()
+
+        return translation
+
 
 def detect_backend() -> str:
     """Best-effort 檢測可用的 GPU 後端"""
@@ -124,52 +170,6 @@ def detect_backend() -> str:
             return "CUDA"
 
     return "CPU"
-    
-    def translate(
-        self,
-        text: str,
-        source_lang: str = "en",
-        target_lang: str = "zh-TW"
-    ) -> str:
-        """
-        翻譯文字
-        
-        參數:
-            text: 待翻譯的文字
-            source_lang: 來源語言代碼
-            target_lang: 目標語言代碼
-            
-        回傳:
-            翻譯後的文字
-        """
-        if not self.is_loaded or not self.model:
-            raise RuntimeError("模型尚未載入")
-        
-        # 取得語言名稱
-        source_name = LANGUAGE_CODES.get(source_lang, source_lang)
-        target_name = LANGUAGE_CODES.get(target_lang, target_lang)
-        
-        # 建構 TranslateGemma 專用的 prompt 格式
-        # 參考: https://huggingface.co/google/translategemma-4b-it
-        prompt = f"""<start_of_turn>user
-Translate the following text from {source_name} to {target_name}:
-
-{text}<end_of_turn>
-<start_of_turn>model
-"""
-        
-        # 進行推論
-        response = self.model(
-            prompt,
-            max_tokens=self.n_ctx,
-            stop=["<end_of_turn>", "<eos>"],
-            echo=False
-        )
-        
-        # 提取翻譯結果
-        translation = response["choices"][0]["text"].strip()
-        
-        return translation
 
 
 if __name__ == "__main__":
