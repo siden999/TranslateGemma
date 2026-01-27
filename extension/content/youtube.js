@@ -575,4 +575,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         ytSettings = { ...ytSettings, ...request.settings };
         sendResponse({ success: true });
     }
+    if (request.action === 'ping') {
+        sendResponse({ pong: true });
+    }
 });
