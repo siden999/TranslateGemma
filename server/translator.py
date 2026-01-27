@@ -6,6 +6,7 @@ TranslateGemma 翻譯器模組
 """
 import os
 from pathlib import Path
+import platform
 from typing import Optional
 
 from huggingface_hub import hf_hub_download
@@ -86,6 +87,14 @@ class TranslateGemmaTranslator:
         model_path = self._download_model()
         
         print(f"🔄 正在載入模型到記憶體...")
+        backend = detect_backend()
+        if backend == "CPU":
+            print("⚙️ 推論模式: CPU")
+        else:
+            if self.n_gpu_layers == 0:
+                print(f"⚙️ 推論模式: CPU (GPU 後端 {backend} 可用，但 n_gpu_layers=0)")
+            else:
+                print(f"⚙️ 推論模式: {backend} GPU (n_gpu_layers={self.n_gpu_layers})")
         
         self.model = Llama(
             model_path=str(model_path),
@@ -96,6 +105,25 @@ class TranslateGemmaTranslator:
         
         self.is_loaded = True
         print("✅ 模型載入完成！")
+
+
+def detect_backend() -> str:
+    """Best-effort 檢測可用的 GPU 後端"""
+    try:
+        import llama_cpp  # 局部匯入避免啟動成本
+        lib_dir = Path(llama_cpp.__file__).parent / "lib"
+    except Exception:
+        return "CPU"
+
+    if platform.system() == "Darwin":
+        if (lib_dir / "libggml-metal.dylib").exists():
+            return "Metal"
+
+    for pattern in ("*cuda*.dll", "*cuda*.so", "*cuda*.dylib"):
+        if any(lib_dir.glob(pattern)):
+            return "CUDA"
+
+    return "CPU"
     
     def translate(
         self,

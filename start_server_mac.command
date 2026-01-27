@@ -26,6 +26,35 @@ else
     source .venv/bin/activate
 fi
 
+get_py_ver() {
+    python - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+}
+
+check_metal() {
+    PY_VER="$(get_py_ver)"
+    SITE_PACKAGES=".venv/lib/python${PY_VER}/site-packages"
+    LLAMA_LIB="${SITE_PACKAGES}/llama_cpp/lib"
+    if [ -f "${LLAMA_LIB}/libggml-metal.dylib" ]; then
+        return 0
+    fi
+    return 1
+}
+
+if check_metal; then
+    echo "✅ 已啟用 Metal GPU 加速"
+else
+    echo "⚠️ 未偵測到 Metal 支援，嘗試啟用 GPU 加速..."
+    CMAKE_ARGS="-DGGML_METAL=on" python -m pip install --force-reinstall --no-binary llama-cpp-python llama-cpp-python
+    if check_metal; then
+        echo "✅ Metal GPU 加速已啟用"
+    else
+        echo "⚠️ Metal 編譯失敗，改用 CPU 版本"
+    fi
+fi
+
 python main.py
 
 echo ""

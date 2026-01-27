@@ -58,7 +58,7 @@
 - **Windows**: 點擊兩下 `start_server_win.bat`
 - **macOS**: 點擊兩下 `start_server_mac.command`
 
-> 注意：首次啟動會自動建立虛擬環境並安裝依賴，需要先安裝 Python 3.10+，且需網路下載套件與模型。若要 GPU 加速，請使用方式 B 或先手動設定 `CMAKE_ARGS`。
+> 注意：首次啟動會自動建立虛擬環境並安裝依賴，需要先安裝 Python 3.10+，且需網路下載套件與模型。程式會自動嘗試啟用 GPU 加速（macOS Metal / Windows CUDA 若偵測到 NVIDIA），失敗則回退 CPU。要強制特定 GPU 設定請用方式 B。
 
 #### 方式 B：進階手動安裝 (可啟用 GPU 加速)
 
