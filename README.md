@@ -49,18 +49,18 @@
 
 ## 🚀 快速開始
 
-由於此專案涉及本地 AI 模型，你需要先啟動 Python 伺服器，再安裝 Chrome 擴充功能。
+建議使用 Launcher 無痛安裝：背景啟動伺服器、托盤控制、擴充介面可一鍵啟動/暫停。
 
-### 1️⃣ 安裝與啟動伺服器
+### 1️⃣ 安裝 Launcher（推薦無痛）
 
-#### 方式 A：一鍵啟動 (推薦)
+- **macOS**：執行 `launcher/install_mac.command`
+- **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
 
-- **Windows**: 點擊兩下 `start_server_win.bat`
-- **macOS**: 點擊兩下 `start_server_mac.command`
+> 注意：首次啟動會自動建立環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入開機啟動，並在背景執行。
 
-> 注意：首次啟動會自動建立虛擬環境並安裝依賴，需要先安裝 Python 3.10+，且需網路下載套件與模型。程式會自動嘗試啟用 GPU 加速（macOS Metal / Windows CUDA 若偵測到 NVIDIA），失敗則回退 CPU。要強制特定 GPU 設定請用方式 B。
+#### 方式 B：手動啟動（開發/除錯用）
 
-#### 方式 B：進階手動安裝 (可啟用 GPU 加速)
+若不使用 Launcher，可手動啟動伺服器：
 
 #### macOS 使用者
 
@@ -125,6 +125,9 @@
 
 ### 2️⃣ 安裝 Chrome 擴充功能
 
+> Chrome Web Store 上架後，可直接安裝。  
+> 目前可用開發者模式安裝：
+
 1. 開啟 Chrome 瀏覽器，在網址列輸入 `chrome://extensions/`。
 2. 開啟右上角的「**開發者模式 (Developer mode)**」。
 3. 點擊左上角的「**載入未封裝項目 (Load unpacked)**」。
@@ -146,7 +149,8 @@
 
 1. 點擊瀏覽器右上角的擴充功能圖示。
 2. **YouTube 翻譯開關**：可一鍵開啟或關閉所有 YouTube 翻譯功能。
-3. **目標語言**：選擇你想翻譯成的語言 (預設繁體中文)。
+3. **伺服器開關**：可一鍵啟動或暫停翻譯伺服器（需 Launcher 在背景執行）。
+4. **目標語言**：選擇你想翻譯成的語言 (預設繁體中文)。
 
 ---
 
@@ -157,6 +161,10 @@ TranslateGemma/
 ├── server/                 # 翻譯 API 伺服器 (FastAPI + GGUF)
 │   ├── main.py            
 │   └── models/            
+│
+├── launcher/              # 背景啟動 + 托盤控制
+│   ├── launcher.py
+│   └── install_*          
 │
 └── extension/             # Chrome 擴充功能
     ├── manifest.json      
@@ -172,7 +180,7 @@ TranslateGemma/
 <details>
 <summary><strong>Q: 伺服器狀態顯示「離線」？</strong></summary>
 
-請確認終端機視窗是否開著，且顯示 `WARNING: This is a development server...` 或 `Uvicorn running on...`。必須保持 Python 程式執行才能翻譯。
+請確認 Launcher 是否已啟動（托盤有圖示），或使用手動模式啟動 `server/main.py`。伺服器必須在背景運行才能翻譯。
 </details>
 
 <details>

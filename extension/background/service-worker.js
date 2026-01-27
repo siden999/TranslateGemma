@@ -3,7 +3,8 @@
  * 負責與本地翻譯 API 伺服器通訊 + 右鍵選單翻譯
  */
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = 'http://127.0.0.1:8080';
+const CONTROL_BASE_URL = 'http://127.0.0.1:18181';
 
 // 翻譯快取
 const translationCache = new Map();
@@ -21,6 +22,42 @@ async function checkServerHealth() {
     } catch (error) {
         console.error('伺服器健康檢查失敗:', error);
         return false;
+    }
+}
+
+/**
+ * 檢查 Launcher / 控制服務狀態
+ */
+async function getControlStatus() {
+    try {
+        const response = await fetch(`${CONTROL_BASE_URL}/status`);
+        const data = await response.json();
+        return { ok: true, data };
+    } catch (error) {
+        console.error('控制服務狀態取得失敗:', error);
+        return { ok: false, error: error.message };
+    }
+}
+
+async function startServer() {
+    try {
+        const response = await fetch(`${CONTROL_BASE_URL}/start`, { method: 'POST' });
+        const data = await response.json();
+        return { ok: true, data };
+    } catch (error) {
+        console.error('啟動伺服器失敗:', error);
+        return { ok: false, error: error.message };
+    }
+}
+
+async function stopServer() {
+    try {
+        const response = await fetch(`${CONTROL_BASE_URL}/stop`, { method: 'POST' });
+        const data = await response.json();
+        return { ok: true, data };
+    } catch (error) {
+        console.error('停止伺服器失敗:', error);
+        return { ok: false, error: error.message };
     }
 }
 
@@ -83,6 +120,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .then(healthy => {
                 sendResponse({ healthy });
             });
+        return true;
+    }
+
+    if (request.action === 'getServerStatus') {
+        getControlStatus().then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
+    if (request.action === 'startServer') {
+        startServer().then(result => {
+            sendResponse(result);
+        });
+        return true;
+    }
+
+    if (request.action === 'stopServer') {
+        stopServer().then(result => {
+            sendResponse(result);
+        });
         return true;
     }
 

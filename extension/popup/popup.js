@@ -8,6 +8,8 @@ const statusDot = document.querySelector('.status-dot');
 const statusText = document.querySelector('.status-text');
 const enableToggle = document.getElementById('enableToggle');
 const targetLang = document.getElementById('targetLang');
+const serverStatusText = document.getElementById('serverStatusText');
+const serverToggle = document.getElementById('serverToggle');
 
 /**
  * 初始化
@@ -15,12 +17,16 @@ const targetLang = document.getElementById('targetLang');
 async function init() {
     // 檢查伺服器狀態
     await checkServerStatus();
+    await refreshControlStatus();
 
     // 載入設定
     await loadSettings();
 
     // 綁定事件
     bindEvents();
+
+    // 定期刷新狀態
+    setInterval(refreshControlStatus, 4000);
 }
 
 /**
@@ -88,12 +94,74 @@ async function saveSettings() {
 }
 
 /**
+ * 取得 Launcher / 控制服務狀態
+ */
+async function refreshControlStatus() {
+    if (!serverStatusText || !serverToggle) return;
+    serverToggle.disabled = true;
+    serverStatusText.textContent = '檢查中...';
+
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getServerStatus' });
+        if (!response?.ok) {
+            serverStatusText.textContent = 'Launcher 未啟動';
+            serverToggle.textContent = '啟動';
+            serverToggle.classList.remove('stop');
+            serverToggle.disabled = false;
+            serverToggle.dataset.state = 'stopped';
+            return;
+        }
+
+        const data = response.data || {};
+        const running = !!data.server_running;
+        const ready = !!data.server_ready;
+        const mode = data.mode ? ` (${data.mode})` : '';
+
+        if (running) {
+            serverStatusText.textContent = ready ? `運行中${mode}` : `啟動中${mode}`;
+            serverToggle.textContent = '暫停';
+            serverToggle.classList.add('stop');
+            serverToggle.dataset.state = 'running';
+        } else {
+            serverStatusText.textContent = '已停止';
+            serverToggle.textContent = '啟動';
+            serverToggle.classList.remove('stop');
+            serverToggle.dataset.state = 'stopped';
+        }
+        serverToggle.disabled = false;
+    } catch (error) {
+        serverStatusText.textContent = '狀態取得失敗';
+        serverToggle.textContent = '啟動';
+        serverToggle.classList.remove('stop');
+        serverToggle.disabled = false;
+        serverToggle.dataset.state = 'stopped';
+    }
+}
+
+async function handleServerToggle() {
+    if (!serverToggle) return;
+    serverToggle.disabled = true;
+    const isRunning = serverToggle.dataset.state === 'running';
+
+    if (isRunning) {
+        await chrome.runtime.sendMessage({ action: 'stopServer' });
+    } else {
+        await chrome.runtime.sendMessage({ action: 'startServer' });
+    }
+    await refreshControlStatus();
+    await checkServerStatus();
+}
+
+/**
  * 綁定事件
  */
 function bindEvents() {
     // 設定變更
     enableToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
+    if (serverToggle) {
+        serverToggle.addEventListener('click', handleServerToggle);
+    }
 
     // 設定連結
     const settingsLink = document.getElementById('settingsLink');
