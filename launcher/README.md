@@ -12,7 +12,7 @@
 2. 完成後會自動加入開機啟動
 
 ### Windows
-1. 以 PowerShell 執行 `install_win.ps1`
+1. 右鍵 `install_win.ps1` → **使用 PowerShell 執行**
 2. 完成後會加入登入自啟
 
 ## 啟動
@@ -29,8 +29,17 @@ python launcher.py
 - `GET http://127.0.0.1:18181/status`
 - `POST http://127.0.0.1:18181/start`
 - `POST http://127.0.0.1:18181/stop`
+- `POST http://127.0.0.1:18181/quit`
 
 ## 記錄檔
 
 - 翻譯伺服器：`server/logs/server.log`
 - Launcher（macOS）：`launcher/launcher.log`
+
+## 移除
+
+### macOS
+執行 `uninstall_mac.command`
+
+### Windows
+右鍵 `uninstall_win.ps1` → **使用 PowerShell 執行**

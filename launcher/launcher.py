@@ -31,6 +31,7 @@ CONTROL_PORT = int(os.environ.get("TG_CONTROL_PORT", "18181"))
 SERVER_URL = os.environ.get("TG_SERVER_URL", "http://127.0.0.1:8080")
 # 預設不自動啟動伺服器，避免模型常駐記憶體
 AUTO_START = os.environ.get("TG_AUTO_START", "0") != "0"
+APP_STATE: dict[str, object] = {}
 
 
 class ServerManager:
@@ -170,6 +171,10 @@ class ControlHandler(BaseHTTPRequestHandler):
         if self.path == "/stop":
             self._send_json(200, self.manager.stop())
             return
+        if self.path == "/quit":
+            self._send_json(200, {"ok": True})
+            threading.Thread(target=shutdown_app, daemon=True).start()
+            return
         self._send_json(404, {"error": "not found"})
 
     def log_message(self, format, *args):
@@ -187,6 +192,8 @@ def run_control_server(manager: ServerManager) -> ThreadingHTTPServer:
     handler = ControlHandler
     handler.manager = manager
     httpd = ThreadingHTTPServer(("127.0.0.1", CONTROL_PORT), handler)
+    APP_STATE["manager"] = manager
+    APP_STATE["httpd"] = httpd
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     return httpd
@@ -245,12 +252,7 @@ def main():
     httpd = run_control_server(manager)
 
     def _shutdown(signum=None, frame=None):
-        manager.stop()
-        try:
-            httpd.shutdown()
-        except Exception:
-            pass
-        sys.exit(0)
+        shutdown_app()
 
     for sig in (getattr(signal, "SIGINT", None), getattr(signal, "SIGTERM", None)):
         if sig is not None:
@@ -276,6 +278,19 @@ def main():
         except KeyboardInterrupt:
             manager.stop()
             httpd.shutdown()
+
+
+def shutdown_app():
+    manager = APP_STATE.get("manager")
+    httpd = APP_STATE.get("httpd")
+    if isinstance(manager, ServerManager):
+        manager.stop()
+    if isinstance(httpd, ThreadingHTTPServer):
+        try:
+            httpd.shutdown()
+        except Exception:
+            pass
+    os._exit(0)
 
 
 if __name__ == "__main__":

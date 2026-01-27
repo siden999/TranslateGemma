@@ -58,6 +58,10 @@
 
 > 注意：首次啟動會自動建立環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
 
+**一鍵移除**
+- **macOS**：執行 `launcher/uninstall_mac.command`
+- **Windows**：以 PowerShell 執行 `launcher/uninstall_win.ps1`
+
 **運作方式（一般人版）**
 - Launcher 是「小型背景程式」，平常安靜在背景待命。
 - 擴充功能的「啟動/暫停」只會控制**翻譯伺服器**，不會關掉 Launcher 本體。
