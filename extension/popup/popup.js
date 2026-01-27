@@ -10,6 +10,7 @@ const enableToggle = document.getElementById('enableToggle');
 const targetLang = document.getElementById('targetLang');
 const serverStatusText = document.getElementById('serverStatusText');
 const serverToggle = document.getElementById('serverToggle');
+const memoryStatusText = document.getElementById('memoryStatusText');
 
 /**
  * 初始化
@@ -100,6 +101,9 @@ async function refreshControlStatus() {
     if (!serverStatusText || !serverToggle) return;
     serverToggle.disabled = true;
     serverStatusText.textContent = '檢查中...';
+    if (memoryStatusText) {
+        memoryStatusText.textContent = '模型狀態檢查中...';
+    }
 
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getServerStatus' });
@@ -109,6 +113,9 @@ async function refreshControlStatus() {
             serverToggle.classList.remove('stop');
             serverToggle.disabled = false;
             serverToggle.dataset.state = 'stopped';
+            if (memoryStatusText) {
+                memoryStatusText.textContent = '模型未載入';
+            }
             return;
         }
 
@@ -122,11 +129,17 @@ async function refreshControlStatus() {
             serverToggle.textContent = '暫停';
             serverToggle.classList.add('stop');
             serverToggle.dataset.state = 'running';
+            if (memoryStatusText) {
+                memoryStatusText.textContent = ready ? '模型已載入' : '模型載入中...';
+            }
         } else {
-            serverStatusText.textContent = '已停止';
+            serverStatusText.textContent = '已停止（預設關閉）';
             serverToggle.textContent = '啟動';
             serverToggle.classList.remove('stop');
             serverToggle.dataset.state = 'stopped';
+            if (memoryStatusText) {
+                memoryStatusText.textContent = '模型已卸載，記憶體已釋放';
+            }
         }
         serverToggle.disabled = false;
     } catch (error) {
@@ -135,6 +148,9 @@ async function refreshControlStatus() {
         serverToggle.classList.remove('stop');
         serverToggle.disabled = false;
         serverToggle.dataset.state = 'stopped';
+        if (memoryStatusText) {
+            memoryStatusText.textContent = '模型狀態未知';
+        }
     }
 }
 

@@ -29,7 +29,8 @@ LOG_FILE = LOG_DIR / "server.log"
 
 CONTROL_PORT = int(os.environ.get("TG_CONTROL_PORT", "18181"))
 SERVER_URL = os.environ.get("TG_SERVER_URL", "http://127.0.0.1:8080")
-AUTO_START = os.environ.get("TG_AUTO_START", "1") != "0"
+# 預設不自動啟動伺服器，避免模型常駐記憶體
+AUTO_START = os.environ.get("TG_AUTO_START", "0") != "0"
 
 
 class ServerManager:

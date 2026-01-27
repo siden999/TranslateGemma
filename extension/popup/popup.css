@@ -261,7 +261,7 @@ body {
 /* 底部 */
 .footer {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 12px 20px;
     background: #f8fafc;
@@ -270,12 +270,6 @@ body {
     color: #64748b;
 }
 
-.footer a {
-    color: #0ea5e9;
-    text-decoration: none;
+.footer span {
     font-weight: 500;
-}
-
-.footer a:hover {
-    text-decoration: underline;
 }

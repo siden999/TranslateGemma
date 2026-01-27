@@ -56,7 +56,14 @@
 - **macOS**：執行 `launcher/install_mac.command`
 - **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
 
-> 注意：首次啟動會自動建立環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入開機啟動，並在背景執行。
+> 注意：首次啟動會自動建立環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
+
+**運作方式（一般人版）**
+- Launcher 是「小型背景程式」，平常安靜在背景待命。
+- 擴充功能的「啟動/暫停」只會控制**翻譯伺服器**，不會關掉 Launcher 本體。
+- 預設情況下伺服器是關閉的，要在擴充介面按「啟動」才會載入模型。
+- 若你在擴充裡按「暫停」，只是停止翻譯伺服器；Launcher 仍在背景待命。
+- 重新開機後，Launcher 會自動再啟動（除非你手動移除自動啟動設定）。
 
 #### 方式 B：手動啟動（開發/除錯用）
 
@@ -183,6 +190,13 @@ TranslateGemma/
 請確認 Launcher 是否已啟動（托盤有圖示），或使用手動模式啟動 `server/main.py`。伺服器必須在背景運行才能翻譯。
 </details>
 
+<details>
+<summary><strong>Q: Launcher 會一直常駐嗎？關掉擴充就會關嗎？</strong></summary>
+
+Launcher 會在背景常駐，但它只在你「啟動翻譯伺服器」時才會真正吃資源。  
+擴充介面上的「暫停」只會停止伺服器，**Launcher 仍在背景待命**。  
+重新開機後會自動再啟動（除非你手動移除自動啟動設定）。
+</details>
 <details>
 <summary><strong>Q: 為什麼其他網站不能翻譯了？</strong></summary>
 
