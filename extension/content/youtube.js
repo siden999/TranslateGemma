@@ -17,10 +17,76 @@ let commentObserver = null;
 let translatedSubtitles = new Map();
 let isProcessing = false;
 let debounceTimer = null;
+let spaTimer = null;
+let contextInvalidated = false;
+
+const TG_RELOAD_KEY = 'tgAutoReloadedAt';
 
 // 限制：最多同時進行的翻譯請求數
 const MAX_CONCURRENT = 3;
 let activeRequests = 0;
+
+function isInvalidatedError(error) {
+    const message = (error && error.message) ? error.message : String(error || '');
+    return message.includes('Extension context invalidated') ||
+        message.includes('context invalidated') ||
+        message.includes('The message port closed') ||
+        message.includes('Receiving end does not exist');
+}
+
+function showReloadBanner(text, allowManual = false) {
+    if (document.getElementById('tg-reload-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'tg-reload-banner';
+    banner.textContent = text || 'TranslateGemma 更新中，正在恢復…';
+    if (allowManual) {
+        const button = document.createElement('button');
+        button.textContent = '重新載入';
+        button.addEventListener('click', () => location.reload());
+        banner.appendChild(button);
+    }
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('show'));
+}
+
+function stopObservers() {
+    try { subtitleObserver?.disconnect(); } catch (e) {}
+    try { commentObserver?.disconnect(); } catch (e) {}
+    try { sidebarIntersectionObserver?.disconnect(); } catch (e) {}
+    if (sidebarScanTimer) {
+        clearInterval(sidebarScanTimer);
+        sidebarScanTimer = null;
+    }
+    if (spaTimer) {
+        clearInterval(spaTimer);
+        spaTimer = null;
+    }
+}
+
+function handleContextInvalidated(reason) {
+    if (contextInvalidated) return;
+    contextInvalidated = true;
+    stopObservers();
+
+    let lastReload = 0;
+    try {
+        lastReload = parseInt(sessionStorage.getItem(TG_RELOAD_KEY) || '0', 10);
+    } catch (e) {}
+
+    const now = Date.now();
+    const canReload = !lastReload || (now - lastReload > 30000);
+
+    if (canReload) {
+        try { sessionStorage.setItem(TG_RELOAD_KEY, String(now)); } catch (e) {}
+        showReloadBanner('TranslateGemma 更新中，正在自動恢復…');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showReloadBanner('TranslateGemma 更新中，請手動重新載入', true);
+    }
+    if (reason) {
+        console.warn('TranslateGemma context invalidated:', reason);
+    }
+}
 
 /**
  * 初始化
@@ -29,9 +95,17 @@ async function initYouTube() {
     console.log('🎬 TranslateGemma YouTube 模組已載入');
 
     try {
+        if (!chrome.runtime?.id) {
+            handleContextInvalidated('runtime missing');
+            return;
+        }
         const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
         ytSettings = { ...ytSettings, ...response };
     } catch (e) {
+        if (isInvalidatedError(e)) {
+            handleContextInvalidated(e.message || 'settings failed');
+            return;
+        }
         // 使用預設值
     }
 
@@ -51,6 +125,11 @@ async function initYouTube() {
  */
 async function translateText(text, targetLang = 'zh-TW') {
     if (!text || !text.trim()) return null;
+    if (contextInvalidated) return null;
+    if (!chrome.runtime?.id) {
+        handleContextInvalidated('runtime missing');
+        return null;
+    }
 
     // 避免重複請求 (簡單快取)
     if (translatedSubtitles.has(text) && translatedSubtitles.get(text)) {
@@ -70,6 +149,10 @@ async function translateText(text, targetLang = 'zh-TW') {
             return response.translation;
         }
     } catch (e) {
+        if (isInvalidatedError(e)) {
+            handleContextInvalidated(e.message || 'translate failed');
+            return null;
+        }
         console.error('翻譯請求失敗:', e);
     }
     return null;
@@ -572,6 +655,37 @@ function addYouTubeStyles() {
             border-left: 3px solid #3ea6ff;
             padding-left: 8px;
         }
+        /* 失效提示 */
+        #tg-reload-banner {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            background: rgba(17, 24, 39, 0.95);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        #tg-reload-banner.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #tg-reload-banner button {
+            background: #3ea6ff;
+            border: none;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -581,7 +695,7 @@ initYouTube();
 
 // SPA 導航處理
 let lastUrl = location.href;
-setInterval(() => {
+spaTimer = setInterval(() => {
     if (location.href !== lastUrl) {
         lastUrl = location.href;
         // 清除狀態
