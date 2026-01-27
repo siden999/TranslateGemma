@@ -58,9 +58,9 @@
 - **Windows**: 點擊兩下 `start_server_win.bat`
 - **macOS**: 點擊兩下 `start_server_mac.command`
 
-> 注意：首次使用仍需照下方「開發者手動安裝」步驟先安裝 Python 環境與模型。
+> 注意：首次啟動會自動建立虛擬環境並安裝依賴，需要先安裝 Python 3.10+，且需網路下載套件與模型。若要 GPU 加速，請使用方式 B 或先手動設定 `CMAKE_ARGS`。
 
-#### 方式 B：開發者手動安裝
+#### 方式 B：進階手動安裝 (可啟用 GPU 加速)
 
 #### macOS 使用者
 
