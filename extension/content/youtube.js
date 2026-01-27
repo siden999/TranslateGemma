@@ -118,9 +118,13 @@ async function processSubtitles() {
 
 async function translateSegment(segment) {
     const text = segment.textContent.trim();
-    if (!text || segment.dataset.tgProcessed) return;
+    if (!text) return;
+    const now = Date.now();
+    const retryAt = parseInt(segment.dataset.tgRetryAt || '0', 10);
+    if (retryAt && now < retryAt) return;
+    if (segment.dataset.tgLastText === text && segment.dataset.tgTranslated === 'true') return;
 
-    segment.dataset.tgProcessed = 'true';
+    segment.dataset.tgLastText = text;
     activeRequests++;
 
     const translation = await translateText(text, ytSettings.targetLang);
@@ -128,6 +132,11 @@ async function translateSegment(segment) {
 
     if (translation) {
         showSubtitleTranslation(segment, translation);
+        segment.dataset.tgTranslated = 'true';
+        segment.dataset.tgRetryAt = '0';
+    } else {
+        segment.dataset.tgTranslated = 'false';
+        segment.dataset.tgRetryAt = String(Date.now() + 1500);
     }
 }
 
@@ -160,13 +169,14 @@ function waitForTitleAndDescription() {
 }
 
 async function processTitle(titleEl) {
-    if (titleEl.querySelector('.tg-title-trans') || titleEl.dataset.tgProcessed) return;
-
-    titleEl.dataset.tgProcessed = 'true';
     const text = titleEl.textContent.trim();
+    if (!text) return;
 
     // 簡單檢測：如果是中文就不翻譯
     if (/[\u4e00-\u9fff]/.test(text)) return;
+
+    if (titleEl.dataset.tgLastText === text && titleEl.querySelector('.tg-title-trans')) return;
+    titleEl.dataset.tgLastText = text;
 
     const translation = await translateText(text, ytSettings.targetLang);
     if (translation) {
@@ -174,6 +184,9 @@ async function processTitle(titleEl) {
         transEl.className = 'tg-title-trans';
         transEl.textContent = translation;
         titleEl.appendChild(transEl);
+    } else {
+        // 失敗時稍後再試一次
+        setTimeout(() => processTitle(titleEl), 1500);
     }
 }
 
@@ -181,13 +194,15 @@ async function processDescription() {
     // 雖然說明欄通常是縮起的，我們嘗試翻譯可見部分或等待展開
     // 這裡簡化處理：只翻譯說明欄的一開始部分
     const descEl = document.querySelector('#description-inline-expander');
-    if (!descEl || descEl.dataset.tgProcessed) return;
-
-    descEl.dataset.tgProcessed = 'true';
+    if (!descEl) return;
     // 說明欄內容較多且含 HTML，只取第一段純文字試作
     const text = descEl.innerText.trim().substring(0, 500);
+    if (!text) return;
 
     if (/[\u4e00-\u9fff]/.test(text)) return; // 略過中文
+
+    if (descEl.dataset.tgLastText === text && descEl.querySelector('.tg-desc-trans')) return;
+    descEl.dataset.tgLastText = text;
 
     const translation = await translateText(text, ytSettings.targetLang);
     if (translation) {
@@ -196,6 +211,8 @@ async function processDescription() {
         transEl.textContent = `📝 ${translation}...`;
         // 插入在說明欄頂部
         descEl.insertBefore(transEl, descEl.firstChild);
+    } else {
+        setTimeout(() => processDescription(), 1500);
     }
 }
 
@@ -245,11 +262,13 @@ function waitForComments() {
 }
 
 async function translateComment(commentEl) {
-    if (commentEl.dataset.tgProcessed) return;
-    commentEl.dataset.tgProcessed = 'true';
-
     const text = commentEl.textContent.trim();
     if (!text || /[\u4e00-\u9fff]/.test(text)) return; // 略過中文
+
+    const retryAt = parseInt(commentEl.dataset.tgRetryAt || '0', 10);
+    if (retryAt && Date.now() < retryAt) return;
+    if (commentEl.dataset.tgLastText === text && commentEl.querySelector('.tg-comment-trans')) return;
+    commentEl.dataset.tgLastText = text;
 
     // 加入翻譯按鈕而非直接翻譯，或是直接翻譯但樣式區隔
     // 為求簡潔，直接顯示翻譯在下方
@@ -260,6 +279,14 @@ async function translateComment(commentEl) {
         transEl.className = 'tg-comment-trans';
         transEl.textContent = translation;
         commentEl.appendChild(transEl);
+        commentEl.dataset.tgRetryAt = '0';
+    } else {
+        const retryCount = parseInt(commentEl.dataset.tgRetryCount || '0', 10);
+        if (retryCount < 3) {
+            commentEl.dataset.tgRetryCount = String(retryCount + 1);
+            commentEl.dataset.tgRetryAt = String(Date.now() + 2000);
+            setTimeout(() => translateComment(commentEl), 2000);
+        }
     }
 }
 
@@ -577,5 +604,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.action === 'ping') {
         sendResponse({ pong: true });
+    }
+    if (request.action === 'serverStarted') {
+        // 清掉舊狀態，讓字幕/標題可重新翻譯
+        translatedSubtitles.clear();
+        document.querySelectorAll('.ytp-caption-segment').forEach(seg => {
+            delete seg.dataset.tgLastText;
+            delete seg.dataset.tgTranslated;
+            delete seg.dataset.tgRetryAt;
+        });
+        const titleEl = document.querySelector('h1.ytd-video-primary-info-renderer');
+        if (titleEl) {
+            delete titleEl.dataset.tgLastText;
+        }
+        const descEl = document.querySelector('#description-inline-expander');
+        if (descEl) {
+            delete descEl.dataset.tgLastText;
+        }
+        setTimeout(() => {
+            waitForCaptionContainer();
+            waitForTitleAndDescription();
+            waitForComments();
+            waitForRelatedVideos();
+        }, 300);
+        sendResponse({ success: true });
     }
 });

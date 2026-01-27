@@ -61,6 +61,24 @@ async function stopServer() {
     }
 }
 
+function broadcastServerStarted() {
+    chrome.tabs.query({ url: ['*://*.youtube.com/*'] }, (tabs) => {
+        if (chrome.runtime.lastError) {
+            console.warn('無法取得分頁清單:', chrome.runtime.lastError.message);
+            return;
+        }
+        tabs.forEach(tab => {
+            if (!tab?.id) return;
+            chrome.tabs.sendMessage(tab.id, { action: 'serverStarted' }, () => {
+                // 忽略未注入 content script 的分頁錯誤
+                if (chrome.runtime.lastError) {
+                    return;
+                }
+            });
+        });
+    });
+}
+
 /**
  * 呼叫翻譯 API
  */
@@ -132,6 +150,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === 'startServer') {
         startServer().then(result => {
+            if (result?.ok) {
+                broadcastServerStarted();
+            }
             sendResponse(result);
         });
         return true;
