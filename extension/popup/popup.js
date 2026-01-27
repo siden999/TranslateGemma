@@ -11,8 +11,6 @@ const targetLang = document.getElementById('targetLang');
 const serverStatusText = document.getElementById('serverStatusText');
 const serverToggle = document.getElementById('serverToggle');
 const memoryStatusText = document.getElementById('memoryStatusText');
-const ytAccessRow = document.getElementById('ytAccessRow');
-const grantYtAccess = document.getElementById('grantYtAccess');
 
 /**
  * 初始化
@@ -21,7 +19,6 @@ async function init() {
     // 檢查伺服器狀態
     await checkServerStatus();
     await refreshControlStatus();
-    await ensureYouTubeAccess();
 
     // 載入設定
     await loadSettings();
@@ -171,45 +168,6 @@ async function handleServerToggle() {
     await checkServerStatus();
 }
 
-async function ensureYouTubeAccess() {
-    if (!ytAccessRow || !grantYtAccess) return;
-    ytAccessRow.hidden = true;
-
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url || !tab.url.includes('youtube.com')) return;
-
-    const hasPermission = await chrome.permissions.contains({
-        origins: ['https://*.youtube.com/*']
-    });
-
-    if (!hasPermission) {
-        ytAccessRow.hidden = false;
-        return;
-    }
-
-    // 權限有了，再確認內容腳本是否注入
-    chrome.tabs.sendMessage(tab.id, { action: 'ping' }, (resp) => {
-        if (chrome.runtime.lastError || !resp?.pong) {
-            ytAccessRow.hidden = false;
-        }
-    });
-}
-
-async function handleGrantAccess() {
-    const granted = await chrome.permissions.request({
-        origins: ['https://*.youtube.com/*']
-    });
-    if (granted) {
-        ytAccessRow.hidden = true;
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab?.id) {
-            chrome.tabs.reload(tab.id);
-        }
-    } else {
-        ytAccessRow.hidden = false;
-    }
-}
-
 /**
  * 綁定事件
  */
@@ -219,9 +177,6 @@ function bindEvents() {
     targetLang.addEventListener('change', saveSettings);
     if (serverToggle) {
         serverToggle.addEventListener('click', handleServerToggle);
-    }
-    if (grantYtAccess) {
-        grantYtAccess.addEventListener('click', handleGrantAccess);
     }
 
     // 設定連結
