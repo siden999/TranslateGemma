@@ -10,7 +10,7 @@
   <a href="#快速開始">安裝</a> •
   <a href="#使用方式">使用</a> •
   <a href="#常見問題">FAQ</a> •
-  <a href="#授權">授權</a>
+  <a href="#法律與使用條款">法律與使用條款</a>
 </p>
 
 ---
@@ -219,9 +219,14 @@ Launcher 會在背景常駐，但它只在你「啟動翻譯伺服器」時才�
 
 ---
 
-## 📜 授權
+## 📜 法律與使用條款
 
-本專案採用 [MIT License](LICENSE) 授權。
+本專案使用 Google Gemma 模型，請閱讀並遵守下列文件：
+
+- `GEMMA_TERMS_OF_USE.md`
+- `GEMMA_PROHIBITED_USE_POLICY.md`
+- `NOTICE`
+- `TERMS_OF_USE.md`
 
 <p align="center">
   Made for pure YouTube experience.
