@@ -35,20 +35,6 @@
                 "content/content.css"
             ],
             "run_at": "document_idle"
-        },
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "exclude_matches": [
-                "*://*.youtube.com/*",
-                "*://localhost/*",
-                "*://127.0.0.1/*"
-            ],
-            "js": [
-                "content/article.js"
-            ],
-            "run_at": "document_idle"
         }
     ],
     "commands": {

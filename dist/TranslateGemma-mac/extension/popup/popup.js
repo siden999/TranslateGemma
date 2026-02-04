@@ -7,7 +7,6 @@
 const statusDot = document.querySelector('.status-dot');
 const statusText = document.querySelector('.status-text');
 const enableToggle = document.getElementById('enableToggle');
-const articleToggle = document.getElementById('articleToggle');
 const targetLang = document.getElementById('targetLang');
 const serverStatusText = document.getElementById('serverStatusText');
 const serverToggle = document.getElementById('serverToggle');
@@ -61,7 +60,6 @@ async function loadSettings() {
         const settings = await chrome.runtime.sendMessage({ action: 'getSettings' });
 
         enableToggle.checked = settings.enabled;
-        articleToggle.checked = settings.articleEnabled !== false;
         targetLang.value = settings.targetLang || 'zh-TW';
     } catch (error) {
         console.error('載入設定失敗:', error);
@@ -74,7 +72,6 @@ async function loadSettings() {
 async function saveSettings() {
     const settings = {
         enabled: enableToggle.checked,
-        articleEnabled: articleToggle.checked,
         targetLang: targetLang.value
     };
 
@@ -177,7 +174,6 @@ async function handleServerToggle() {
 function bindEvents() {
     // 設定變更
     enableToggle.addEventListener('change', saveSettings);
-    articleToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
     if (serverToggle) {
         serverToggle.addEventListener('click', handleServerToggle);

@@ -1,0 +1,312 @@
+/**
+ * TranslateGemma 翻譯樣式 v2.0
+ * 優化：避免影響頁面原有佈局
+ */
+
+/* ============== 翻譯容器（安全樣式） ============== */
+.tg-translation-container {
+    /* 使用 !important 確保樣式生效，但不使用 all:initial 避免破壞佈局 */
+    display: block !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 8px 0 !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+    border: none !important;
+    border-left: 4px solid #0ea5e9 !important;
+    border-radius: 0 8px 8px 0 !important;
+    font-size: 0.95em !important;
+    line-height: 1.6 !important;
+    color: #1e3a5f !important;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    animation: tg-fade-in 0.3s ease-out !important;
+    box-sizing: border-box !important;
+    text-align: left !important;
+    /* 避免影響 flex/grid 佈局 */
+    flex: none !important;
+    align-self: stretch !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    z-index: 1 !important;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+    .tg-translation-container {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+        border-left-color: #38bdf8 !important;
+        color: #e2e8f0 !important;
+        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15) !important;
+    }
+}
+
+/* 翻譯文字 */
+.tg-translation {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ============== 處理中狀態（輕量化） ============== */
+.tg-translating {
+    /* 移除 position:relative，避免影響佈局 */
+    background-color: rgba(14, 165, 233, 0.02) !important;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+/* 已翻譯狀態 - 不需要額外樣式以避免影響佈局 */
+
+/* ============== 動畫 ============== */
+@keyframes tg-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============== 骨架載入效果 ============== */
+.tg-translation-skeleton {
+    display: block !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    margin: 8px 0 !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-left: 4px solid #cbd5e1 !important;
+    border-radius: 0 8px 8px 0 !important;
+    box-sizing: border-box !important;
+}
+
+.tg-skeleton-line {
+    height: 14px !important;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%) !important;
+    background-size: 200% 100% !important;
+    border-radius: 4px !important;
+    margin-bottom: 8px !important;
+    animation: tg-shimmer 1.5s infinite !important;
+}
+
+.tg-skeleton-line:last-child {
+    margin-bottom: 0 !important;
+}
+
+@keyframes tg-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* 深色模式骨架 */
+@media (prefers-color-scheme: dark) {
+    .tg-translation-skeleton {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+        border-left-color: #475569 !important;
+    }
+
+    .tg-skeleton-line {
+        background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important;
+        background-size: 200% 100% !important;
+    }
+}
+
+/* ============== 右鍵選單翻譯彈出框 ============== */
+.tg-selection-popup {
+    position: fixed !important;
+    width: 320px !important;
+    max-width: 90vw !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
+    animation: tg-popup-in 0.2s ease-out !important;
+    overflow: hidden !important;
+    z-index: 2147483647 !important;
+}
+
+.tg-popup-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%) !important;
+    color: white !important;
+}
+
+.tg-popup-icon {
+    font-size: 16px !important;
+}
+
+.tg-popup-title {
+    flex: 1 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+}
+
+.tg-popup-close {
+    background: none !important;
+    border: none !important;
+    color: white !important;
+    font-size: 16px !important;
+    cursor: pointer !important;
+    opacity: 0.8 !important;
+    transition: opacity 0.2s !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+.tg-popup-close:hover {
+    opacity: 1 !important;
+}
+
+.tg-popup-content {
+    padding: 16px !important;
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+    color: #1e293b !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+}
+
+.tg-popup-error {
+    color: #dc2626 !important;
+}
+
+@keyframes tg-popup-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 深色模式彈出框 */
+@media (prefers-color-scheme: dark) {
+    .tg-selection-popup {
+        background: #1e293b !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .tg-popup-content {
+        color: #e2e8f0 !important;
+    }
+}
+
+/* ============== 滑鼠懸停翻譯 Tooltip ============== */
+.tg-hover-tooltip {
+    max-width: 350px !important;
+    min-width: 200px !important;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    color: #e8e8e8 !important;
+    overflow: hidden !important;
+    backdrop-filter: blur(10px) !important;
+    animation: tg-tooltip-fade-in 0.2s ease-out !important;
+}
+
+@keyframes tg-tooltip-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tg-hover-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    font-size: 12px !important;
+    color: #8b9dc3 !important;
+}
+
+.tg-hover-close {
+    background: none !important;
+    border: none !important;
+    color: #8b9dc3 !important;
+    cursor: pointer !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    transition: all 0.2s !important;
+}
+
+.tg-hover-close:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+}
+
+.tg-hover-content {
+    padding: 12px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+
+.tg-hover-loading {
+    padding: 12px !important;
+    text-align: center !important;
+    color: #8b9dc3 !important;
+}
+
+/* 淺色模式支援 */
+@media (prefers-color-scheme: light) {
+    .tg-hover-tooltip {
+        background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%) !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+        color: #333 !important;
+    }
+
+    .tg-hover-header {
+        background: rgba(0, 0, 0, 0.05) !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        color: #666 !important;
+    }
+
+    .tg-hover-close {
+        color: #666 !important;
+    }
+
+    .tg-hover-close:hover {
+        background: rgba(0, 0, 0, 0.05) !important;
+        color: #333 !important;
+    }
+
+    .tg-hover-loading {
+        color: #666 !important;
+    }
+}
