@@ -1,0 +1,240 @@
+/**
+ * TranslateGemma Wikipedia Translation Module v1.0
+ * Wikipedia 專用沉浸式翻譯
+ */
+
+// ============== 設定 ==============
+let settings = {
+    wikipediaEnabled: true,
+    targetLang: 'zh-TW',
+    minChars: 50
+};
+
+// 並行控制
+const MAX_CONCURRENT = 2;
+let activeRequests = 0;
+const pendingQueue = [];
+
+// ============== Wikipedia 專用偵測 ==============
+
+/**
+ * 取得 Wikipedia 內容區域
+ */
+function getContentArea() {
+    return document.querySelector('#mw-content-text .mw-parser-output');
+}
+
+/**
+ * 取得頁面標題
+ */
+function getPageTitle() {
+    return document.querySelector('#firstHeading');
+}
+
+/**
+ * 判斷是否為排除區域
+ */
+function isExcluded(el) {
+    // Wikipedia 特有的排除區域
+    const excludedClasses = [
+        'infobox',      // 資訊框
+        'navbox',       // 導航框
+        'sidebar',      // 側邊欄
+        'toc',          // 目錄
+        'mw-editsection', // 編輯連結
+        'reference',    // 參考資料
+        'reflist',      // 參考列表
+        'thumb',        // 縮圖
+        'metadata',     // 元資料
+        'noprint'       // 不列印區域
+    ];
+
+    let parent = el;
+    while (parent) {
+        if (parent.className && typeof parent.className === 'string') {
+            const classes = parent.className.toLowerCase();
+            if (excludedClasses.some(c => classes.includes(c))) return true;
+        }
+        // 排除表格
+        if (parent.tagName === 'TABLE') return true;
+        parent = parent.parentElement;
+    }
+    return false;
+}
+
+/**
+ * 收集可翻譯元素
+ */
+function collectElements() {
+    const elements = [];
+    const contentArea = getContentArea();
+
+    if (!contentArea) {
+        console.log('📚 找不到 Wikipedia 內容區域');
+        return elements;
+    }
+
+    // 標題
+    const title = getPageTitle();
+    if (title && !title.dataset.tgTranslated) {
+        elements.push({ el: title, type: 'title' });
+    }
+
+    // 段落 (只在 mw-parser-output 內)
+    const paragraphs = contentArea.querySelectorAll('p');
+    paragraphs.forEach(p => {
+        if (!p.dataset.tgTranslated && !isExcluded(p)) {
+            const text = p.textContent.trim();
+            if (text.length >= settings.minChars) {
+                elements.push({ el: p, type: 'paragraph' });
+            }
+        }
+    });
+
+    // 章節標題 (h2, h3)
+    const headings = contentArea.querySelectorAll('h2 .mw-headline, h3 .mw-headline');
+    headings.forEach(h => {
+        if (!h.dataset.tgTranslated && !isExcluded(h)) {
+            const text = h.textContent.trim();
+            if (text.length >= 2) {
+                elements.push({ el: h, type: 'heading' });
+            }
+        }
+    });
+
+    return elements;
+}
+
+// ============== 翻譯功能 ==============
+
+function processQueue() {
+    while (activeRequests < MAX_CONCURRENT && pendingQueue.length > 0) {
+        const task = pendingQueue.shift();
+        translateElement(task.el, task.type);
+    }
+}
+
+async function translateElement(el, type) {
+    if (el.dataset.tgTranslated) return;
+
+    const text = el.textContent.trim();
+    if (!text) return;
+
+    el.dataset.tgTranslated = 'pending';
+    activeRequests++;
+
+    // 載入指示器
+    const loader = document.createElement('span');
+    loader.className = 'tg-wiki-loader';
+    loader.textContent = ' ⏳';
+    el.appendChild(loader);
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'translate',
+            text: text,
+            sourceLang: 'auto',
+            targetLang: settings.targetLang
+        });
+
+        loader.remove();
+
+        if (response?.success && response.translation) {
+            const transEl = document.createElement('div');
+
+            // 根據類型設定樣式
+            if (type === 'title') {
+                transEl.style.cssText = 'color: #333 !important; font-size: 0.7em !important; font-weight: normal !important; margin-top: 8px !important; padding: 8px 12px !important; border-left: 3px solid #36c !important; background: rgba(51, 102, 204, 0.08) !important; border-radius: 0 4px 4px 0 !important;';
+            } else if (type === 'heading') {
+                transEl.style.cssText = 'color: #333 !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 2px solid #36c !important; background: rgba(51, 102, 204, 0.05) !important; display: inline-block !important;';
+            } else {
+                transEl.style.cssText = 'color: #333 !important; font-size: 0.95em !important; margin-top: 8px !important; margin-bottom: 12px !important; padding: 10px 14px !important; border-left: 3px solid #36c !important; background: rgba(51, 102, 204, 0.08) !important; line-height: 1.7 !important; border-radius: 0 4px 4px 0 !important;';
+            }
+
+            transEl.textContent = response.translation;
+            el.parentNode.insertBefore(transEl, el.nextSibling);
+            el.dataset.tgTranslated = 'done';
+
+            console.log(`✅ Wikipedia 翻譯完成: ${text.substring(0, 30)}...`);
+        } else {
+            el.dataset.tgTranslated = '';
+            console.warn('❌ 翻譯失敗:', response?.error);
+        }
+    } catch (error) {
+        loader.remove();
+        el.dataset.tgTranslated = '';
+        console.error('❌ 翻譯錯誤:', error);
+    } finally {
+        activeRequests--;
+        processQueue();
+    }
+}
+
+function queueTranslation(el, type) {
+    if (el.dataset.tgTranslated) return;
+    pendingQueue.push({ el, type });
+    processQueue();
+}
+
+// ============== 觀察器 ==============
+
+function setupObserver(elements) {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const type = el.dataset.tgType;
+                queueTranslation(el, type);
+                observer.unobserve(el);
+            }
+        });
+    }, { rootMargin: '100px' });
+
+    elements.forEach(({ el, type }) => {
+        el.dataset.tgType = type;
+        observer.observe(el);
+    });
+
+    return observer;
+}
+
+// ============== 初始化 ==============
+
+async function init() {
+    console.log('📚 TranslateGemma Wikipedia 模組已載入');
+
+    // 載入設定
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
+        settings = { ...settings, ...response };
+    } catch (e) {
+        // 使用預設值
+    }
+
+    if (!settings.wikipediaEnabled) {
+        console.log('📚 Wikipedia 翻譯已停用');
+        return;
+    }
+
+    // 收集元素
+    const elements = collectElements();
+    if (elements.length === 0) {
+        console.log('📚 未找到可翻譯內容');
+        return;
+    }
+
+    console.log(`📚 找到 ${elements.length} 個可翻譯元素`);
+    setupObserver(elements);
+}
+
+// ============== 訊息監聽 ==============
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'updateSettings') {
+        settings = { ...settings, ...request.settings };
+        sendResponse({ success: true });
+    }
+});
+
+// 延遲啟動
+setTimeout(init, 800);

@@ -8,6 +8,7 @@ const statusDot = document.querySelector('.status-dot');
 const statusText = document.querySelector('.status-text');
 const enableToggle = document.getElementById('enableToggle');
 const articleToggle = document.getElementById('articleToggle');
+const wikipediaToggle = document.getElementById('wikipediaToggle');
 const targetLang = document.getElementById('targetLang');
 const serverStatusText = document.getElementById('serverStatusText');
 const serverToggle = document.getElementById('serverToggle');
@@ -62,6 +63,7 @@ async function loadSettings() {
 
         enableToggle.checked = settings.enabled;
         articleToggle.checked = settings.articleEnabled !== false;
+        wikipediaToggle.checked = settings.wikipediaEnabled !== false;
         targetLang.value = settings.targetLang || 'zh-TW';
     } catch (error) {
         console.error('載入設定失敗:', error);
@@ -75,6 +77,7 @@ async function saveSettings() {
     const settings = {
         enabled: enableToggle.checked,
         articleEnabled: articleToggle.checked,
+        wikipediaEnabled: wikipediaToggle.checked,
         targetLang: targetLang.value
     };
 
@@ -178,6 +181,7 @@ function bindEvents() {
     // 設定變更
     enableToggle.addEventListener('change', saveSettings);
     articleToggle.addEventListener('change', saveSettings);
+    wikipediaToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
     if (serverToggle) {
         serverToggle.addEventListener('click', handleServerToggle);

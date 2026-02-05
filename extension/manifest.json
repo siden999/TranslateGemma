@@ -38,10 +38,20 @@
         },
         {
             "matches": [
+                "*://*.wikipedia.org/*"
+            ],
+            "js": [
+                "content/wikipedia.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
                 "<all_urls>"
             ],
             "exclude_matches": [
                 "*://*.youtube.com/*",
+                "*://*.wikipedia.org/*",
                 "*://localhost/*",
                 "*://127.0.0.1/*"
             ],
