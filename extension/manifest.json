@@ -47,11 +47,21 @@
         },
         {
             "matches": [
+                "*://github.com/*"
+            ],
+            "js": [
+                "content/github.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
                 "<all_urls>"
             ],
             "exclude_matches": [
                 "*://*.youtube.com/*",
                 "*://*.wikipedia.org/*",
+                "*://github.com/*",
                 "*://localhost/*",
                 "*://127.0.0.1/*"
             ],
