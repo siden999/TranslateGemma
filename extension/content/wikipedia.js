@@ -35,30 +35,33 @@ function getPageTitle() {
  * 判斷是否為排除區域
  */
 function isExcluded(el) {
-    // Wikipedia 特有的排除區域
-    const excludedClasses = [
-        'infobox',      // 資訊框
-        'navbox',       // 導航框
-        'sidebar',      // 側邊欄
-        'toc',          // 目錄
-        'mw-editsection', // 編輯連結
-        'reference',    // 參考資料
-        'reflist',      // 參考列表
-        'thumb',        // 縮圖
-        'metadata',     // 元資料
-        'noprint'       // 不列印區域
+    // Wikipedia 特有的排除區域 - 使用更精準的 class 名稱
+    const excludedSelectors = [
+        '.infobox',
+        '.navbox',
+        '.sidebar',
+        '.toc',
+        '.mw-editsection',
+        '.reflist',
+        '.thumb',
+        '.metadata',
+        '.noprint',
+        '.hatnote',  // "此條目..."說明
+        '.mw-empty-elt'  // 空元素
     ];
 
-    let parent = el;
-    while (parent) {
-        if (parent.className && typeof parent.className === 'string') {
-            const classes = parent.className.toLowerCase();
-            if (excludedClasses.some(c => classes.includes(c))) return true;
+    // 檢查元素本身和父元素是否匹配排除選擇器
+    for (const selector of excludedSelectors) {
+        if (el.closest(selector)) {
+            return true;
         }
-        // 排除表格
-        if (parent.tagName === 'TABLE') return true;
-        parent = parent.parentElement;
     }
+
+    // 如果在表格內，排除
+    if (el.closest('table')) {
+        return true;
+    }
+
     return false;
 }
 
@@ -67,12 +70,22 @@ function isExcluded(el) {
  */
 function collectElements() {
     const elements = [];
-    const contentArea = getContentArea();
+
+    // 嘗試多個選擇器找內容區域
+    let contentArea = document.querySelector('#mw-content-text .mw-parser-output');
+    if (!contentArea) {
+        contentArea = document.querySelector('#mw-content-text');
+    }
+    if (!contentArea) {
+        contentArea = document.querySelector('#bodyContent');
+    }
 
     if (!contentArea) {
         console.log('📚 找不到 Wikipedia 內容區域');
         return elements;
     }
+
+    console.log('📚 找到內容區域:', contentArea.className || contentArea.id);
 
     // 標題
     const title = getPageTitle();
@@ -80,14 +93,21 @@ function collectElements() {
         elements.push({ el: title, type: 'title' });
     }
 
-    // 段落 (只在 mw-parser-output 內)
+    // 段落 - 直接用更簡單的選擇器
     const paragraphs = contentArea.querySelectorAll('p');
-    paragraphs.forEach(p => {
-        if (!p.dataset.tgTranslated && !isExcluded(p)) {
-            const text = p.textContent.trim();
-            if (text.length >= settings.minChars) {
-                elements.push({ el: p, type: 'paragraph' });
-            }
+    console.log(`📚 找到 ${paragraphs.length} 個段落標籤`);
+
+    paragraphs.forEach((p, index) => {
+        const text = p.textContent.trim();
+        const excluded = isExcluded(p);
+
+        // 只對前5個段落輸出 debug
+        if (index < 5) {
+            console.log(`📚 段落 ${index}: 長度=${text.length}, 排除=${excluded}`);
+        }
+
+        if (!p.dataset.tgTranslated && !excluded && text.length >= settings.minChars) {
+            elements.push({ el: p, type: 'paragraph' });
         }
     });
 
