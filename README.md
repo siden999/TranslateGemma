@@ -17,15 +17,19 @@
 
 ## ✨ 功能特色
 
-專注於解決語言障礙，支援 YouTube、新聞網站、Wikipedia 等多種場景。
+專注於解決語言障礙，支援 YouTube、Reddit、GitHub、新聞網站、Wikipedia 等多種場景。
 
 | 功能 | 說明 |
 |------|------|
 | 🎬 **YouTube 翻譯** | 雙語字幕、標題、說明、留言、推薦影片 |
 | 📰 **文章翻譯** | 自動翻譯新聞網站 (BBC, NYT 等) 的標題與內文 |
 | 📚 **Wikipedia** | 支援所有語言版本的維基百科翻譯 |
+| 🐙 **GitHub** | README、Issue、Pull Request 自動翻譯 |
+| 🔴 **Reddit** | 帖子標題、內文、留言翻譯（列表頁僅標題） |
+| ✋ **選取翻譯** | 任意網站選取文字自動彈出翻譯氣泡 |
 | 🔒 **完全離線** | 資料不離開你的電腦，保護隱私 |
-| ⚡ **獨立開關** | YouTube、文章、Wikipedia 各有獨立開關 |
+| ⚡ **獨立開關** | 各功能皆有獨立開關，隨時啟停 |
+| 🌐 **智慧語言偵測** | 自動跳過中文內容，不重複翻譯 |
 
 ### 🖥️ 跨平台支援
 
@@ -172,14 +176,40 @@
 - **章節標題**：自動翻譯
 - **內文段落**：自動翻譯
 
+### GitHub 翻譯
+
+進入 GitHub 頁面後自動翻譯：
+
+- **README**：自動翻譯 Markdown 內容
+- **Issue / PR**：自動翻譯標題與內文
+
+### Reddit 翻譯
+
+進入 Reddit 後自動翻譯：
+
+- **列表頁**：帖子標題自動翻譯
+- **帖子內頁**：標題、內文、留言全部翻譯
+- 支援 SPA 路由切換偵測與動態載入內容
+
+### 選取翻譯
+
+在任何網站上選取文字後自動彈出翻譯氣泡：
+
+- 選取超過 5 個字元即觸發
+- 自動跳過中文選取
+- 點擊外部或按 ESC 關閉氣泡
+
 ### 設定調整
 
 1. 點擊瀏覽器右上角的擴充功能圖示。
-2. **YouTube 翻譯開關**：開啟或關閉 YouTube 翻譯功能。
-3. **文章翻譯開關**：開啟或關閉新聞網站翻譯功能。
-4. **Wikipedia 開關**：開啟或關閉 Wikipedia 翻譯功能。
-5. **伺服器開關**：啟動或暫停翻譯伺服器（需 Launcher 在背景執行）。
-6. **目標語言**：選擇你想翻譯成的語言 (預設繁體中文)。
+2. **YouTube 翻譯**：開啟或關閉 YouTube 翻譯。
+3. **文章翻譯**：開啟或關閉新聞網站翻譯。
+4. **Wikipedia**：開啟或關閉 Wikipedia 翻譯。
+5. **GitHub**：開啟或關閉 GitHub 翻譯。
+6. **Reddit**：開啟或關閉 Reddit 翻譯。
+7. **選取翻譯**：開啟或關閉選取文字翻譯。
+8. **伺服器開關**：啟動或暫停翻譯伺服器。
+9. **目標語言**：選擇翻譯目標語言 (預設繁體中文)。
 
 ---
 
@@ -197,7 +227,9 @@ TranslateGemma/
 │
 └── extension/             # Chrome 擴充功能
     ├── manifest.json      
-    ├── content/           # youtube.js, article.js, wikipedia.js
+    ├── content/           # youtube.js, article.js, wikipedia.js,
+    │                      # github.js, reddit.js, selection-translate.js,
+    │                      # dark-mode-detect.js
     ├── popup/             # 設定介面
     └── background/        # Service Worker (輕量化)
 ```
@@ -220,9 +252,9 @@ Launcher 會在背景常駐，但它只在你「啟動翻譯伺服器」時才�
 重新開機後會自動再啟動（除非你手動移除自動啟動設定）。
 </details>
 <details>
-<summary><strong>Q: 為什麼其他網站不能翻譯了？</strong></summary>
+<summary><strong>Q: 支援哪些網站？</strong></summary>
 
-目前支援的網站類型有：YouTube、一般新聞網站（BBC, NYT 等）、Wikipedia。其他網站暫不支援。
+目前支援：YouTube、一般新聞網站（BBC, NYT 等）、Wikipedia、GitHub、Reddit。此外，選取翻譯功能可在任何網站上使用。
 </details>
 
 <details>
