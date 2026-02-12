@@ -3,20 +3,20 @@
  * 優化：避免影響頁面原有佈局
  */
 
-/* ============== CSS 變數（深色模式由 JS 動態設定） ============== */
+/* ============== CSS 變數（統一配色，不區分深淺色模式） ============== */
 :root {
-    --tg-text-color: #1e3a5f;
-    --tg-bg-start: #f0f9ff;
-    --tg-bg-end: #e0f2fe;
+    --tg-text-color: #1a1a1a;
+    --tg-bg-start: #eef6fc;
+    --tg-bg-end: #e3f0fa;
     --tg-border-color: #0ea5e9;
-    --tg-shadow-color: rgba(14, 165, 233, 0.1);
-    --tg-skeleton-bg-start: #f8fafc;
-    --tg-skeleton-bg-end: #f1f5f9;
-    --tg-skeleton-border: #cbd5e1;
-    --tg-skeleton-line-start: #e2e8f0;
-    --tg-skeleton-line-mid: #f1f5f9;
+    --tg-shadow-color: rgba(14, 165, 233, 0.12);
+    --tg-skeleton-bg-start: #f0f6fc;
+    --tg-skeleton-bg-end: #e8f1fa;
+    --tg-skeleton-border: #b0cde0;
+    --tg-skeleton-line-start: #d4e4f0;
+    --tg-skeleton-line-mid: #e8f1fa;
     --tg-popup-bg: #ffffff;
-    --tg-popup-text: #1e293b;
+    --tg-popup-text: #1a1a1a;
 }
 
 /* ============== 翻譯容器（安全樣式） ============== */
@@ -50,24 +50,6 @@
     visibility: visible !important;
     overflow: visible !important;
     z-index: 1 !important;
-}
-
-/* 深色模式（CSS media query 作為 fallback，主要由 JS 動態設定 CSS 變數） */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --tg-text-color: #e2e8f0;
-        --tg-bg-start: #1e293b;
-        --tg-bg-end: #0f172a;
-        --tg-border-color: #38bdf8;
-        --tg-shadow-color: rgba(56, 189, 248, 0.15);
-        --tg-skeleton-bg-start: #1e293b;
-        --tg-skeleton-bg-end: #0f172a;
-        --tg-skeleton-border: #475569;
-        --tg-skeleton-line-start: #334155;
-        --tg-skeleton-line-mid: #475569;
-        --tg-popup-bg: #1e293b;
-        --tg-popup-text: #e2e8f0;
-    }
 }
 
 /* 翻譯文字 */

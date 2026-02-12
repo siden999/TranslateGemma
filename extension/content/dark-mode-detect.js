@@ -74,16 +74,14 @@ function getColorLuminance(color) {
 
 /**
  * 取得翻譯區塊的配色方案
- * @param {string} accentColor - 強調色（如 '#3ea6ff', '#36c', '#238636'）
+ * 統一使用淺藍底 + 深色字，確保在任何背景下都清晰可讀
+ * @param {string} accentColor - 左邊框強調色（如 '#3ea6ff', '#ff4500'）
  * @returns {{ textColor: string, bgColor: string, borderColor: string }}
  */
 function getTranslationColors(accentColor = '#3ea6ff') {
-    const dark = isDarkBackground();
     return {
-        textColor: dark ? '#e6edf3' : '#1e3a5f',
-        bgColor: dark
-            ? `rgba(${hexToRgb(accentColor)}, 0.15)`
-            : `rgba(${hexToRgb(accentColor)}, 0.08)`,
+        textColor: '#1a1a1a',
+        bgColor: '#eef6fc',
         borderColor: accentColor
     };
 }
