@@ -2,6 +2,9 @@
  * TranslateGemma Reddit 翻譯模組
  * 支援帖子標題、內文、留言翻譯
  * Reddit 新版 UI 使用 Web Components (shreddit-post, shreddit-comment)
+ * 列表頁標題: a[slot="full-post-link"]
+ * 帖子內頁標題: h1[slot="title"]
+ * 留言: shreddit-comment [slot="comment"] p
  */
 
 // ============== 設定 ==============
@@ -15,7 +18,7 @@ const MAX_CONCURRENT = 3;
 let activeRequests = 0;
 const pendingQueue = [];
 let observer = null;
-let intersectionObserver = null;
+let debounceTimer = null;
 
 // ============== 初始化 ==============
 async function init() {
@@ -36,7 +39,7 @@ async function init() {
         return;
     }
 
-    // 初始翻譯
+    // 初始翻譯（等 DOM 穩定）
     setTimeout(() => startTranslation(), 2000);
 
     // 監聽 SPA 動態載入
@@ -58,28 +61,22 @@ async function init() {
 
 /**
  * 取得帖子標題元素
+ * 列表頁: a[slot="full-post-link"] 或 [slot="title"]
+ * 內頁: h1[slot="title"]
  */
 function getPostTitles() {
     const titles = [];
+    const seen = new Set();
 
-    // 新版 shreddit-post 的標題
     document.querySelectorAll('shreddit-post').forEach(post => {
-        // slot="title" 或 a[slot="title"]
-        const titleEl = post.querySelector('a[slot="title"], [slot="title"]');
-        if (titleEl && !titleEl.dataset.tgTranslated) {
+        // 內頁：h1[slot="title"]
+        // 列表頁：a[slot="full-post-link"] 或 [slot="title"]
+        const titleEl = post.querySelector('h1[slot="title"], a[slot="full-post-link"], [slot="title"]');
+        if (titleEl && !titleEl.dataset.tgTranslated && !seen.has(titleEl)) {
             const text = titleEl.textContent.trim();
             if (text.length >= 10 && !isChinese(text)) {
                 titles.push({ el: titleEl, type: 'title' });
-            }
-        }
-    });
-
-    // fallback: 如果有 post title links
-    document.querySelectorAll('a[data-click-id="body"] h3, a.SQnoC3ObvgnGjWt90zD9Z').forEach(el => {
-        if (!el.dataset.tgTranslated) {
-            const text = el.textContent.trim();
-            if (text.length >= 10 && !isChinese(text)) {
-                titles.push({ el, type: 'title' });
+                seen.add(titleEl);
             }
         }
     });
@@ -89,28 +86,30 @@ function getPostTitles() {
 
 /**
  * 取得帖子內文段落
+ * 使用 [slot="text-body"] 內的段落
  */
 function getPostBodies() {
     const bodies = [];
 
-    // shreddit-post 內的 markdown 段落
-    document.querySelectorAll('shreddit-post .md p, [data-click-id="text"] .md p').forEach(p => {
-        if (!p.dataset.tgTranslated) {
-            const text = p.textContent.trim();
-            if (text.length >= settings.minChars && !isChinese(text)) {
-                bodies.push({ el: p, type: 'paragraph' });
-            }
-        }
-    });
+    // shreddit-post 內的文字內容 (slot="text-body" 或 .md p)
+    const selectors = [
+        'shreddit-post [slot="text-body"] p',
+        'shreddit-post .md p',
+        'shreddit-post-text-body p'
+    ];
 
-    // 單篇帖子頁面的內文
-    document.querySelectorAll('[data-test-id="post-content"] .md p, .Post .md p').forEach(p => {
-        if (!p.dataset.tgTranslated) {
-            const text = p.textContent.trim();
-            if (text.length >= settings.minChars && !isChinese(text)) {
-                bodies.push({ el: p, type: 'paragraph' });
+    selectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(p => {
+            if (!p.dataset.tgTranslated) {
+                const text = p.textContent.trim();
+                if (text.length >= settings.minChars && !isChinese(text)) {
+                    // 避免重複加入
+                    if (!bodies.some(b => b.el === p)) {
+                        bodies.push({ el: p, type: 'paragraph' });
+                    }
+                }
             }
-        }
+        });
     });
 
     return bodies;
@@ -118,28 +117,28 @@ function getPostBodies() {
 
 /**
  * 取得留言元素
+ * 留言內容在 shreddit-comment [slot="comment"] p
  */
 function getComments() {
     const comments = [];
 
-    // shreddit-comment 的留言內文
-    document.querySelectorAll('shreddit-comment .md p').forEach(p => {
-        if (!p.dataset.tgTranslated) {
-            const text = p.textContent.trim();
-            if (text.length >= settings.minChars && !isChinese(text)) {
-                comments.push({ el: p, type: 'comment' });
-            }
-        }
-    });
+    // shreddit-comment 的留言內文 (slot="comment" 內的段落)
+    const selectors = [
+        'shreddit-comment [slot="comment"] p',
+        'shreddit-comment .md p'
+    ];
 
-    // fallback: 舊版留言結構
-    document.querySelectorAll('.Comment .md p, [data-testid="comment"] .md p').forEach(p => {
-        if (!p.dataset.tgTranslated) {
-            const text = p.textContent.trim();
-            if (text.length >= settings.minChars && !isChinese(text)) {
-                comments.push({ el: p, type: 'comment' });
+    selectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(p => {
+            if (!p.dataset.tgTranslated) {
+                const text = p.textContent.trim();
+                if (text.length >= settings.minChars && !isChinese(text)) {
+                    if (!comments.some(c => c.el === p)) {
+                        comments.push({ el: p, type: 'comment' });
+                    }
+                }
             }
-        }
+        });
     });
 
     return comments;
@@ -154,6 +153,8 @@ function startTranslation() {
     const bodies = getPostBodies();
     const comments = getComments();
     const all = [...titles, ...bodies, ...comments];
+
+    if (all.length === 0) return;
 
     console.log(`🔴 Reddit 找到 ${all.length} 個可翻譯元素 (標題:${titles.length}, 內文:${bodies.length}, 留言:${comments.length})`);
 
@@ -232,34 +233,62 @@ async function translateElement(el, type) {
 // ============== 動態載入監聽 ==============
 
 function setupMutationObserver() {
+    // 防抖翻譯：任何 DOM 變動後 800ms 才翻譯
+    function debouncedTranslate() {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            if (settings.redditEnabled) {
+                startTranslation();
+            }
+        }, 800);
+    }
+
     observer = new MutationObserver((mutations) => {
-        let hasNewContent = false;
         for (const mutation of mutations) {
             if (mutation.addedNodes.length > 0) {
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // 偵測新帖子或留言
+                        // 偵測任何可能包含新內容的元素
                         if (node.tagName === 'SHREDDIT-POST' ||
                             node.tagName === 'SHREDDIT-COMMENT' ||
-                            node.querySelector?.('shreddit-post, shreddit-comment, .md')) {
-                            hasNewContent = true;
-                            break;
+                            node.tagName === 'SHREDDIT-POST-TEXT-BODY' ||
+                            node.querySelector?.('shreddit-post, shreddit-comment, .md, [slot="comment"], [slot="text-body"]')) {
+                            debouncedTranslate();
+                            return;
+                        }
+                        // SPA 導航：偵測大型容器更新
+                        if (node.id === 'main-content' ||
+                            node.id === 'comment-tree' ||
+                            node.tagName === 'MAIN' ||
+                            node.getAttribute?.('slot') === 'comment') {
+                            debouncedTranslate();
+                            return;
                         }
                     }
                 }
             }
-            if (hasNewContent) break;
-        }
-
-        if (hasNewContent && settings.redditEnabled) {
-            // 延遲處理，等 DOM 穩定
-            setTimeout(() => startTranslation(), 500);
         }
     });
 
     observer.observe(document.body, {
         childList: true,
         subtree: true
+    });
+
+    // 監聽 URL 變化（SPA 路由切換）
+    let lastUrl = location.href;
+    const urlObserver = new MutationObserver(() => {
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            console.log('🔴 Reddit URL 變化:', lastUrl);
+            // URL 變化時重新掃描
+            setTimeout(() => startTranslation(), 1500);
+        }
+    });
+    urlObserver.observe(document.querySelector('head > title') || document.head, {
+        childList: true,
+        subtree: true,
+        characterData: true
     });
 }
 
