@@ -20,6 +20,18 @@ const pendingQueue = [];
 let observer = null;
 let debounceTimer = null;
 
+/**
+ * 判斷是否在帖子內頁（CommentsPage）
+ * 列表頁只翻譯標題，內頁翻譯全部
+ */
+function isDetailPage() {
+    // 方法1: 檢查 shreddit-post 的 view-context 屬性
+    const post = document.querySelector('shreddit-post[view-context="CommentsPage"]');
+    if (post) return true;
+    // 方法2: URL 包含 /comments/
+    return /\/comments\//.test(location.pathname);
+}
+
 // ============== 初始化 ==============
 async function init() {
     console.log('🔴 TranslateGemma Reddit 模組已載入');
@@ -149,14 +161,16 @@ function getComments() {
 function startTranslation() {
     if (!settings.redditEnabled) return;
 
+    const onDetail = isDetailPage();
     const titles = getPostTitles();
-    const bodies = getPostBodies();
-    const comments = getComments();
+    // 列表頁只翻譯標題，避免在截斷容器內插入內容導致重疊
+    const bodies = onDetail ? getPostBodies() : [];
+    const comments = onDetail ? getComments() : [];
     const all = [...titles, ...bodies, ...comments];
 
     if (all.length === 0) return;
 
-    console.log(`🔴 Reddit 找到 ${all.length} 個可翻譯元素 (標題:${titles.length}, 內文:${bodies.length}, 留言:${comments.length})`);
+    console.log(`🔴 Reddit [${onDetail ? '內頁' : '列表'}] 找到 ${all.length} 個可翻譯元素 (標題:${titles.length}, 內文:${bodies.length}, 留言:${comments.length})`);
 
     // 加入佇列
     all.forEach(item => {
@@ -206,9 +220,9 @@ async function translateElement(el, type) {
             const colors = getTranslationColors('#ff4500'); // Reddit 橘色
 
             if (type === 'title') {
-                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important; line-height: 1.5 !important;`;
+                transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important; line-height: 1.5 !important; clear: both !important; position: relative !important;`;
             } else {
-                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 6px !important; margin-bottom: 8px !important; padding: 8px 12px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important;`;
+                transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 6px !important; margin-bottom: 8px !important; padding: 8px 12px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important; clear: both !important; position: relative !important;`;
             }
 
             transEl.textContent = response.translation;
