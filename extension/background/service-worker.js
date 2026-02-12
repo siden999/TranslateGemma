@@ -171,6 +171,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             articleEnabled: true,
             wikipediaEnabled: true,
             githubEnabled: true,
+            redditEnabled: true,
+            selectionEnabled: true,
             targetLang: 'zh-TW',
             autoTranslate: true
         }, (settings) => {

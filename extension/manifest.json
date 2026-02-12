@@ -30,7 +30,8 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
-                "content/youtube.js"
+                "content/youtube.js",
+                "content/selection-translate.js"
             ],
             "css": [
                 "content/content.css"
@@ -43,7 +44,11 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
-                "content/wikipedia.js"
+                "content/wikipedia.js",
+                "content/selection-translate.js"
+            ],
+            "css": [
+                "content/content.css"
             ],
             "run_at": "document_idle"
         },
@@ -53,7 +58,25 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
-                "content/github.js"
+                "content/github.js",
+                "content/selection-translate.js"
+            ],
+            "css": [
+                "content/content.css"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://www.reddit.com/*"
+            ],
+            "js": [
+                "content/dark-mode-detect.js",
+                "content/reddit.js",
+                "content/selection-translate.js"
+            ],
+            "css": [
+                "content/content.css"
             ],
             "run_at": "document_idle"
         },
@@ -65,12 +88,17 @@
                 "*://*.youtube.com/*",
                 "*://*.wikipedia.org/*",
                 "*://github.com/*",
+                "*://www.reddit.com/*",
                 "*://localhost/*",
                 "*://127.0.0.1/*"
             ],
             "js": [
                 "content/dark-mode-detect.js",
-                "content/article.js"
+                "content/article.js",
+                "content/selection-translate.js"
+            ],
+            "css": [
+                "content/content.css"
             ],
             "run_at": "document_idle"
         }

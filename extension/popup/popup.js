@@ -10,6 +10,8 @@ const enableToggle = document.getElementById('enableToggle');
 const articleToggle = document.getElementById('articleToggle');
 const wikipediaToggle = document.getElementById('wikipediaToggle');
 const githubToggle = document.getElementById('githubToggle');
+const redditToggle = document.getElementById('redditToggle');
+const selectionToggle = document.getElementById('selectionToggle');
 const targetLang = document.getElementById('targetLang');
 const serverStatusText = document.getElementById('serverStatusText');
 const serverToggle = document.getElementById('serverToggle');
@@ -66,6 +68,8 @@ async function loadSettings() {
         articleToggle.checked = settings.articleEnabled !== false;
         wikipediaToggle.checked = settings.wikipediaEnabled !== false;
         githubToggle.checked = settings.githubEnabled !== false;
+        redditToggle.checked = settings.redditEnabled !== false;
+        selectionToggle.checked = settings.selectionEnabled !== false;
         targetLang.value = settings.targetLang || 'zh-TW';
     } catch (error) {
         console.error('載入設定失敗:', error);
@@ -81,6 +85,8 @@ async function saveSettings() {
         articleEnabled: articleToggle.checked,
         wikipediaEnabled: wikipediaToggle.checked,
         githubEnabled: githubToggle.checked,
+        redditEnabled: redditToggle.checked,
+        selectionEnabled: selectionToggle.checked,
         targetLang: targetLang.value
     };
 
@@ -186,6 +192,8 @@ function bindEvents() {
     articleToggle.addEventListener('change', saveSettings);
     wikipediaToggle.addEventListener('change', saveSettings);
     githubToggle.addEventListener('change', saveSettings);
+    redditToggle.addEventListener('change', saveSettings);
+    selectionToggle.addEventListener('change', saveSettings);
     targetLang.addEventListener('change', saveSettings);
     if (serverToggle) {
         serverToggle.addEventListener('click', handleServerToggle);

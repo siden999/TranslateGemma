@@ -100,3 +100,19 @@ function hexToRgb(hex) {
     const num = parseInt(hex, 16);
     return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
 }
+
+/**
+ * 偵測文字是否為中文（目標語言）
+ * 中文字元佔比超過 30% 即視為中文內容，不需翻譯
+ * 涵蓋 CJK 統一漢字基本區 + 擴展A區
+ * @param {string} text - 待偵測的文字
+ * @returns {boolean} true 表示為中文內容
+ */
+function isChinese(text) {
+    if (!text) return false;
+    const stripped = text.replace(/\s+/g, '');
+    if (stripped.length === 0) return false;
+    const chineseChars = stripped.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g);
+    const ratio = chineseChars ? chineseChars.length / stripped.length : 0;
+    return ratio > 0.3;
+}

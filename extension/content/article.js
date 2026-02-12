@@ -115,7 +115,8 @@ async function translateElement(el, type) {
     const text = el.textContent.trim();
     if (!text) return;
 
-    // 標記為處理中
+    // 跳過中文內容（不需翻譯）
+    if (isChinese(text)) return;
     el.dataset.tgTranslated = 'pending';
     activeRequests++;
 
