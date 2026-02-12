@@ -168,6 +168,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getSettings') {
         chrome.storage.sync.get({
             enabled: true,
+            articleEnabled: true,
+            wikipediaEnabled: true,
+            githubEnabled: true,
             targetLang: 'zh-TW',
             autoTranslate: true
         }, (settings) => {

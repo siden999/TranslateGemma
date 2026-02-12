@@ -29,6 +29,7 @@
                 "*://*.youtube.com/*"
             ],
             "js": [
+                "content/dark-mode-detect.js",
                 "content/youtube.js"
             ],
             "css": [
@@ -41,6 +42,7 @@
                 "*://*.wikipedia.org/*"
             ],
             "js": [
+                "content/dark-mode-detect.js",
                 "content/wikipedia.js"
             ],
             "run_at": "document_idle"
@@ -50,6 +52,7 @@
                 "*://github.com/*"
             ],
             "js": [
+                "content/dark-mode-detect.js",
                 "content/github.js"
             ],
             "run_at": "document_idle"
@@ -66,6 +69,7 @@
                 "*://127.0.0.1/*"
             ],
             "js": [
+                "content/dark-mode-detect.js",
                 "content/article.js"
             ],
             "run_at": "document_idle"

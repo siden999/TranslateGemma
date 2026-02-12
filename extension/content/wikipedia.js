@@ -161,14 +161,15 @@ async function translateElement(el, type) {
 
         if (response?.success && response.translation) {
             const transEl = document.createElement('div');
+            const colors = getTranslationColors('#3366cc');
 
-            // 根據類型設定樣式
+            // 根據類型設定樣式（自動適配深色模式）
             if (type === 'title') {
-                transEl.style.cssText = 'color: #333 !important; font-size: 0.7em !important; font-weight: normal !important; margin-top: 8px !important; padding: 8px 12px !important; border-left: 3px solid #36c !important; background: rgba(51, 102, 204, 0.08) !important; border-radius: 0 4px 4px 0 !important;';
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.7em !important; font-weight: normal !important; margin-top: 8px !important; padding: 8px 12px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important;`;
             } else if (type === 'heading') {
-                transEl.style.cssText = 'color: #333 !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 2px solid #36c !important; background: rgba(51, 102, 204, 0.05) !important; display: inline-block !important;';
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 2px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; display: inline-block !important;`;
             } else {
-                transEl.style.cssText = 'color: #333 !important; font-size: 0.95em !important; margin-top: 8px !important; margin-bottom: 12px !important; padding: 10px 14px !important; border-left: 3px solid #36c !important; background: rgba(51, 102, 204, 0.08) !important; line-height: 1.7 !important; border-radius: 0 4px 4px 0 !important;';
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 8px !important; margin-bottom: 12px !important; padding: 10px 14px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.7 !important; border-radius: 0 4px 4px 0 !important;`;
             }
 
             transEl.textContent = response.translation;

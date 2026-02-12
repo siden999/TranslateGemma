@@ -3,6 +3,22 @@
  * 優化：避免影響頁面原有佈局
  */
 
+/* ============== CSS 變數（深色模式由 JS 動態設定） ============== */
+:root {
+    --tg-text-color: #1e3a5f;
+    --tg-bg-start: #f0f9ff;
+    --tg-bg-end: #e0f2fe;
+    --tg-border-color: #0ea5e9;
+    --tg-shadow-color: rgba(14, 165, 233, 0.1);
+    --tg-skeleton-bg-start: #f8fafc;
+    --tg-skeleton-bg-end: #f1f5f9;
+    --tg-skeleton-border: #cbd5e1;
+    --tg-skeleton-line-start: #e2e8f0;
+    --tg-skeleton-line-mid: #f1f5f9;
+    --tg-popup-bg: #ffffff;
+    --tg-popup-text: #1e293b;
+}
+
 /* ============== 翻譯容器（安全樣式） ============== */
 .tg-translation-container {
     /* 使用 !important 確保樣式生效，但不使用 all:initial 避免破壞佈局 */
@@ -14,14 +30,14 @@
     height: auto !important;
     margin: 8px 0 !important;
     padding: 12px 16px !important;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+    background: linear-gradient(135deg, var(--tg-bg-start) 0%, var(--tg-bg-end) 100%) !important;
     border: none !important;
-    border-left: 4px solid #0ea5e9 !important;
+    border-left: 4px solid var(--tg-border-color) !important;
     border-radius: 0 8px 8px 0 !important;
     font-size: 0.95em !important;
     line-height: 1.6 !important;
-    color: #1e3a5f !important;
-    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+    color: var(--tg-text-color) !important;
+    box-shadow: 0 2px 8px var(--tg-shadow-color) !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
     animation: tg-fade-in 0.3s ease-out !important;
     box-sizing: border-box !important;
@@ -36,13 +52,21 @@
     z-index: 1 !important;
 }
 
-/* 深色模式 */
+/* 深色模式（CSS media query 作為 fallback，主要由 JS 動態設定 CSS 變數） */
 @media (prefers-color-scheme: dark) {
-    .tg-translation-container {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
-        border-left-color: #38bdf8 !important;
-        color: #e2e8f0 !important;
-        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15) !important;
+    :root {
+        --tg-text-color: #e2e8f0;
+        --tg-bg-start: #1e293b;
+        --tg-bg-end: #0f172a;
+        --tg-border-color: #38bdf8;
+        --tg-shadow-color: rgba(56, 189, 248, 0.15);
+        --tg-skeleton-bg-start: #1e293b;
+        --tg-skeleton-bg-end: #0f172a;
+        --tg-skeleton-border: #475569;
+        --tg-skeleton-line-start: #334155;
+        --tg-skeleton-line-mid: #475569;
+        --tg-popup-bg: #1e293b;
+        --tg-popup-text: #e2e8f0;
     }
 }
 
@@ -84,15 +108,15 @@
     clear: both !important;
     margin: 8px 0 !important;
     padding: 12px 16px !important;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
-    border-left: 4px solid #cbd5e1 !important;
+    background: linear-gradient(135deg, var(--tg-skeleton-bg-start) 0%, var(--tg-skeleton-bg-end) 100%) !important;
+    border-left: 4px solid var(--tg-skeleton-border) !important;
     border-radius: 0 8px 8px 0 !important;
     box-sizing: border-box !important;
 }
 
 .tg-skeleton-line {
     height: 14px !important;
-    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%) !important;
+    background: linear-gradient(90deg, var(--tg-skeleton-line-start) 25%, var(--tg-skeleton-line-mid) 50%, var(--tg-skeleton-line-start) 75%) !important;
     background-size: 200% 100% !important;
     border-radius: 4px !important;
     margin-bottom: 8px !important;
@@ -113,25 +137,12 @@
     }
 }
 
-/* 深色模式骨架 */
-@media (prefers-color-scheme: dark) {
-    .tg-translation-skeleton {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
-        border-left-color: #475569 !important;
-    }
-
-    .tg-skeleton-line {
-        background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important;
-        background-size: 200% 100% !important;
-    }
-}
-
 /* ============== 右鍵選單翻譯彈出框 ============== */
 .tg-selection-popup {
     position: fixed !important;
     width: 320px !important;
     max-width: 90vw !important;
-    background: #ffffff !important;
+    background: var(--tg-popup-bg) !important;
     border-radius: 12px !important;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif !important;
@@ -180,7 +191,7 @@
     padding: 16px !important;
     font-size: 15px !important;
     line-height: 1.6 !important;
-    color: #1e293b !important;
+    color: var(--tg-popup-text) !important;
     max-height: 200px !important;
     overflow-y: auto !important;
     margin: 0 !important;
@@ -199,18 +210,6 @@
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
-    }
-}
-
-/* 深色模式彈出框 */
-@media (prefers-color-scheme: dark) {
-    .tg-selection-popup {
-        background: #1e293b !important;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
-    }
-
-    .tg-popup-content {
-        color: #e2e8f0 !important;
     }
 }
 

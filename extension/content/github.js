@@ -149,22 +149,13 @@ async function translateElement(el, type) {
 
         if (response?.success && response.translation) {
             const transEl = document.createElement('div');
+            const colors = getTranslationColors('#238636');
 
-            // 偵測 GitHub 深色模式
-            const isDarkMode = document.documentElement.getAttribute('data-color-mode') === 'dark' ||
-                document.documentElement.getAttribute('data-dark-theme') ||
-                document.body.classList.contains('dark') ||
-                window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-            // 根據模式選擇顏色
-            const textColor = isDarkMode ? '#e6edf3' : '#333';
-            const bgColor = isDarkMode ? 'rgba(35, 134, 54, 0.15)' : 'rgba(35, 134, 54, 0.08)';
-
-            // GitHub 風格樣式 - 使用綠色主題
+            // GitHub 風格樣式 - 使用綠色主題（自動適配深色模式）
             if (type === 'heading') {
-                transEl.style.cssText = `color: ${textColor} !important; font-size: 0.75em !important; font-weight: normal !important; margin-top: 6px !important; padding: 6px 10px !important; border-left: 3px solid #238636 !important; background: ${bgColor} !important; border-radius: 0 4px 4px 0 !important;`;
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.75em !important; font-weight: normal !important; margin-top: 6px !important; padding: 6px 10px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important;`;
             } else {
-                transEl.style.cssText = `color: ${textColor} !important; font-size: 0.9em !important; margin-top: 8px !important; margin-bottom: 12px !important; padding: 10px 14px !important; border-left: 3px solid #238636 !important; background: ${bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important;`;
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.9em !important; margin-top: 8px !important; margin-bottom: 12px !important; padding: 10px 14px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important;`;
             }
 
             transEl.textContent = response.translation;

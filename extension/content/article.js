@@ -137,13 +137,14 @@ async function translateElement(el, type) {
         loader.remove();
 
         if (response?.success && response.translation) {
-            // 建立翻譯元素 - 使用 inline style 確保樣式生效
+            // 建立翻譯元素 - 使用動態深色模式偵測
             const transEl = document.createElement('div');
+            const colors = getTranslationColors('#3ea6ff');
 
             if (type === 'heading') {
-                transEl.style.cssText = 'color: #333 !important; font-size: 0.9em !important; font-weight: normal !important; margin-top: 6px !important; margin-bottom: 12px !important; padding: 6px 10px !important; border-left: 3px solid #3ea6ff !important; background: rgba(62, 166, 255, 0.12) !important; border-radius: 0 4px 4px 0 !important;';
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.9em !important; font-weight: normal !important; margin-top: 6px !important; margin-bottom: 12px !important; padding: 6px 10px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important;`;
             } else {
-                transEl.style.cssText = 'color: #333 !important; font-size: 0.95em !important; margin-top: 8px !important; margin-bottom: 16px !important; padding: 10px 14px !important; border-left: 3px solid #3ea6ff !important; background: rgba(62, 166, 255, 0.12) !important; line-height: 1.7 !important; border-radius: 0 4px 4px 0 !important;';
+                transEl.style.cssText = `color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 8px !important; margin-bottom: 16px !important; padding: 10px 14px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.7 !important; border-radius: 0 4px 4px 0 !important;`;
             }
 
             transEl.textContent = response.translation;
@@ -255,28 +256,6 @@ function addStyles() {
     const style = document.createElement('style');
     style.id = 'tg-article-style';
     style.textContent = `
-        .tg-article-trans {
-            color: #333 !important;
-            font-size: 0.95em !important;
-            margin-top: 8px !important;
-            margin-bottom: 16px !important;
-            padding: 10px 14px !important;
-            border-left: 3px solid #3ea6ff !important;
-            background: rgba(62, 166, 255, 0.12) !important;
-            line-height: 1.7 !important;
-            border-radius: 0 4px 4px 0 !important;
-        }
-        .tg-article-title-trans {
-            color: #333 !important;
-            font-size: 0.8em !important;
-            font-weight: normal !important;
-            margin-top: 6px !important;
-            margin-bottom: 12px !important;
-            padding: 6px 10px !important;
-            border-left: 3px solid #3ea6ff !important;
-            background: rgba(62, 166, 255, 0.12) !important;
-            border-radius: 0 4px 4px 0 !important;
-        }
         .tg-article-loader {
             display: inline;
             animation: tg-pulse 1s infinite;
@@ -284,18 +263,6 @@ function addStyles() {
         @keyframes tg-pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
-        }
-
-        /* 深色模式支援 */
-        @media (prefers-color-scheme: dark) {
-            .tg-article-trans {
-                color: #eee !important;
-                background: rgba(62, 166, 255, 0.15) !important;
-            }
-            .tg-article-title-trans {
-                color: #ddd !important;
-                background: rgba(62, 166, 255, 0.15) !important;
-            }
         }
     `;
     document.head.appendChild(style);
