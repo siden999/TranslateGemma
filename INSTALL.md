@@ -24,14 +24,14 @@
 ### macOS
 1. 進到資料夾裡的 `launcher`
 2. **雙擊** `install_mac.command`
-3. 等它跑完（第一次會下載模型，可能要等幾分鐘）
+3. 等它跑完（會先安裝並啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 4. 之後請從 `~/Library/Application Support/TranslateGemma/extension` 載入 Chrome 未封裝擴充
 
 ### Windows
 1. 進到資料夾裡的 `launcher`
 2. **右鍵** `install_win.ps1` → 選「使用 PowerShell 執行」
 3. 如果跳出警告，按「允許」
-4. 等它跑完（第一次會下載模型，可能要等幾分鐘）
+4. 等它跑完（安裝器會先啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 5. 之後請從 `%LOCALAPPDATA%\TranslateGemma\extension` 載入 Chrome 未封裝擴充
 
 ---
@@ -50,7 +50,7 @@
 ## 第 4 步：開始使用
 1. 打開 YouTube
 2. 點右上角 TranslateGemma 圖示
-3. 按「啟動」（伺服器會開始工作）
+3. 按「啟動」（伺服器會開始工作；第一次會先下載模型）
 4. 開啟影片字幕（CC）
 5. 看到翻譯就成功了 ✅
 
