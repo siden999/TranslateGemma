@@ -132,6 +132,16 @@ body {
     border-radius: 10px;
 }
 
+.priority-card {
+    gap: 10px;
+    background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%);
+    border-color: #bfdbfe;
+}
+
+.status-card {
+    gap: 10px;
+}
+
 .startup-title {
     font-size: 12px;
     font-weight: 600;
@@ -149,6 +159,17 @@ body {
     justify-content: space-between;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.section-copy {
+    display: grid;
+    gap: 4px;
+}
+
+.section-divider {
+    height: 1px;
+    background: #dbe5f0;
+    margin: 2px 0;
 }
 
 .section-label {
