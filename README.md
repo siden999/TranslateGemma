@@ -147,7 +147,7 @@
 1. 開啟 Chrome 瀏覽器，在網址列輸入 `chrome://extensions/`。
 2. 開啟右上角的「**開發者模式 (Developer mode)**」。
 3. 點擊左上角的「**載入未封裝項目 (Load unpacked)**」。
-4. 選擇專案資料夾中的 `extension` 資料夾。
+4. macOS 請選 `~/Library/Application Support/TranslateGemma/extension`；Windows 請選 `%LOCALAPPDATA%\TranslateGemma\extension`。
 5. 完成！現在前往 YouTube 即可體驗。
 
 ---

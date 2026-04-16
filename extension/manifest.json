@@ -30,6 +30,7 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
+                "content/display-mode.js",
                 "content/youtube.js",
                 "content/selection-translate.js"
             ],
@@ -44,6 +45,7 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
+                "content/display-mode.js",
                 "content/wikipedia.js",
                 "content/selection-translate.js"
             ],
@@ -58,6 +60,7 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
+                "content/display-mode.js",
                 "content/github.js",
                 "content/selection-translate.js"
             ],
@@ -72,6 +75,7 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
+                "content/display-mode.js",
                 "content/reddit.js",
                 "content/selection-translate.js"
             ],
@@ -94,6 +98,7 @@
             ],
             "js": [
                 "content/dark-mode-detect.js",
+                "content/display-mode.js",
                 "content/article.js",
                 "content/selection-translate.js"
             ],

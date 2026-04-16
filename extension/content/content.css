@@ -19,6 +19,21 @@
     --tg-popup-text: #1a1a1a;
 }
 
+html[data-tg-display-mode="original"] .tg-translation-block,
+html[data-tg-display-mode="original"] .tg-translation-container,
+html[data-tg-display-mode="original"] [data-tg-display-role="translation"] {
+    display: none !important;
+}
+
+html[data-tg-display-mode="translated"] [data-tg-display-role="original"] {
+    display: none !important;
+}
+
+html[data-tg-display-mode="translated"] .tg-translation-block,
+html[data-tg-display-mode="translated"] [data-tg-display-role="translation"] {
+    display: block !important;
+}
+
 /* ============== 翻譯容器（安全樣式） ============== */
 .tg-translation-container {
     /* 使用 !important 確保樣式生效，但不使用 all:initial 避免破壞佈局 */

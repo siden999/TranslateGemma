@@ -11,14 +11,74 @@
 let settings = {
     targetLang: 'zh-TW',
     redditEnabled: true,
-    minChars: 30
+    minChars: 30,
+    translationMode: 'balanced',
+    customGlossary: '',
+    displayMode: 'dual'
 };
 
-const MAX_CONCURRENT = 3;
+const MAX_CONCURRENT = 1;
+const BATCH_SIZE = 4;
 let activeRequests = 0;
 const pendingQueue = [];
 let observer = null;
 let debounceTimer = null;
+let progressState = {
+    site: 'reddit',
+    label: 'Reddit 翻譯',
+    status: 'idle',
+    total: 0,
+    completed: 0,
+    failed: 0,
+    pending: 0,
+    detail: ''
+};
+
+function parseGlossary() {
+    return String(settings.customGlossary || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+}
+
+function reportProgress(patch = {}) {
+    progressState = { ...progressState, ...patch };
+    chrome.runtime.sendMessage({
+        action: 'updatePageProgress',
+        progress: progressState
+    }, () => {
+        void chrome.runtime.lastError;
+    });
+}
+
+function clearProgress() {
+    progressState = {
+        site: 'reddit',
+        label: 'Reddit 翻譯',
+        status: 'idle',
+        total: 0,
+        completed: 0,
+        failed: 0,
+        pending: 0,
+        detail: ''
+    };
+    chrome.runtime.sendMessage({ action: 'clearPageProgress' }, () => {
+        void chrome.runtime.lastError;
+    });
+}
+
+function applyBatchProgress(completedDelta, failedDelta) {
+    const completed = progressState.completed + completedDelta;
+    const failed = progressState.failed + failedDelta;
+    const pending = Math.max(0, progressState.total - completed - failed);
+    reportProgress({
+        completed,
+        failed,
+        pending,
+        status: pending === 0 ? 'complete' : 'running',
+        detail: pending === 0 ? '目前頁面已翻譯完成' : `剩餘 ${pending} 段待翻譯`
+    });
+}
 
 /**
  * 判斷是否在帖子內頁（CommentsPage）
@@ -41,6 +101,7 @@ async function init() {
         const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
         if (response) {
             settings = { ...settings, ...response };
+            window.TranslateGemmaDisplay?.apply(settings.displayMode);
         }
     } catch (e) {
         console.warn('⚠️ 設定載入失敗:', e);
@@ -48,6 +109,7 @@ async function init() {
 
     if (!settings.redditEnabled) {
         console.log('🔴 Reddit 翻譯已停用');
+        clearProgress();
         return;
     }
 
@@ -61,8 +123,11 @@ async function init() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'updateSettings') {
             settings = { ...settings, ...request.settings };
+            window.TranslateGemmaDisplay?.apply(settings.displayMode);
             if (settings.redditEnabled) {
                 startTranslation();
+            } else {
+                clearProgress();
             }
             sendResponse({ success: true });
         }
@@ -168,9 +233,20 @@ function startTranslation() {
     const comments = onDetail ? getComments() : [];
     const all = [...titles, ...bodies, ...comments];
 
-    if (all.length === 0) return;
+    if (all.length === 0) {
+        clearProgress();
+        return;
+    }
 
     console.log(`🔴 Reddit [${onDetail ? '內頁' : '列表'}] 找到 ${all.length} 個可翻譯元素 (標題:${titles.length}, 內文:${bodies.length}, 留言:${comments.length})`);
+    reportProgress({
+        status: 'queued',
+        total: all.length,
+        completed: 0,
+        failed: 0,
+        pending: all.length,
+        detail: onDetail ? '帖子與留言待翻譯中' : '帖子標題待翻譯中'
+    });
 
     // 加入佇列
     all.forEach(item => {
@@ -184,60 +260,97 @@ function startTranslation() {
 
 function processQueue() {
     while (activeRequests < MAX_CONCURRENT && pendingQueue.length > 0) {
-        const task = pendingQueue.shift();
-        translateElement(task.el, task.type);
+        const tasks = pendingQueue.splice(0, BATCH_SIZE);
+        activeRequests++;
+        translateBatch(tasks);
     }
 }
 
-async function translateElement(el, type) {
-    if (el.dataset.tgTranslated) return;
-
-    const text = el.textContent.trim();
-    if (!text) return;
-    if (isChinese(text)) return;
-
-    el.dataset.tgTranslated = 'pending';
-    activeRequests++;
-
-    // 載入指示器
+function createLoader(el) {
     const loader = document.createElement('span');
     loader.textContent = ' ⏳';
     loader.style.cssText = 'opacity: 0.6; font-size: 0.9em;';
     el.appendChild(loader);
+    return loader;
+}
+
+function insertTranslation(el, type, translation, text) {
+    const transEl = document.createElement('div');
+    const colors = getTranslationColors('#ff4500');
+
+    if (type === 'title') {
+        transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important; line-height: 1.5 !important; clear: both !important; position: relative !important;`;
+    } else {
+        transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 6px !important; margin-bottom: 8px !important; padding: 8px 12px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important; clear: both !important; position: relative !important;`;
+    }
+
+    window.TranslateGemmaDisplay?.markOriginal(el);
+    window.TranslateGemmaDisplay?.markTranslation(transEl);
+    transEl.textContent = translation;
+    el.parentNode.insertBefore(transEl, el.nextSibling);
+    el.dataset.tgTranslated = 'done';
+    console.log(`✅ Reddit 翻譯完成: ${text.substring(0, 30)}...`);
+}
+
+async function translateBatch(tasks) {
+    const batch = [];
+
+    tasks.forEach(({ el, type }) => {
+        if (el.dataset.tgTranslated) return;
+
+        const text = el.textContent.trim();
+        if (!text || isChinese(text)) return;
+
+        el.dataset.tgTranslated = 'pending';
+        batch.push({ el, type, text, loader: createLoader(el) });
+    });
+
+    if (batch.length === 0) {
+        activeRequests--;
+        processQueue();
+        return;
+    }
 
     try {
         const response = await chrome.runtime.sendMessage({
-            action: 'translate',
-            text: text,
-            sourceLang: 'en',
-            targetLang: settings.targetLang
+            action: 'translateBatch',
+            texts: batch.map(item => item.text),
+            sourceLang: 'auto',
+            targetLang: settings.targetLang,
+            options: {
+                site: 'reddit',
+                contentTypes: batch.map(item => item.type),
+                translationMode: settings.translationMode,
+                glossary: parseGlossary()
+            }
         });
 
-        loader.remove();
-
-        if (response?.success && response.translation) {
-            const transEl = document.createElement('div');
-            const colors = getTranslationColors('#ff4500'); // Reddit 橘色
-
-            if (type === 'title') {
-                transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.85em !important; font-weight: normal !important; margin-top: 4px !important; padding: 4px 8px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; border-radius: 0 4px 4px 0 !important; line-height: 1.5 !important; clear: both !important; position: relative !important;`;
+        let completedCount = 0;
+        let failedCount = 0;
+        batch.forEach((item, index) => {
+            item.loader.remove();
+            const translation = response?.success ? response.translations?.[index] : null;
+            if (translation) {
+                insertTranslation(item.el, item.type, translation, item.text);
+                completedCount++;
             } else {
-                transEl.style.cssText = `display: block !important; color: ${colors.textColor} !important; font-size: 0.95em !important; margin-top: 6px !important; margin-bottom: 8px !important; padding: 8px 12px !important; border-left: 3px solid ${colors.borderColor} !important; background: ${colors.bgColor} !important; line-height: 1.6 !important; border-radius: 0 4px 4px 0 !important; clear: both !important; position: relative !important;`;
+                item.el.dataset.tgTranslated = '';
+                failedCount++;
             }
+        });
 
-            transEl.textContent = response.translation;
-            el.parentNode.insertBefore(transEl, el.nextSibling);
-            el.dataset.tgTranslated = 'done';
+        applyBatchProgress(completedCount, failedCount);
 
-            console.log(`✅ Reddit 翻譯完成: ${text.substring(0, 30)}...`);
-        } else {
-            el.dataset.tgTranslated = '';
-            console.warn('❌ Reddit 翻譯失敗:', response?.error);
+        if (!response?.success) {
+            console.warn('❌ Reddit 批次翻譯失敗:', response?.error);
         }
     } catch (error) {
-        loader.remove();
-        el.dataset.tgTranslated = '';
-        console.error('❌ Reddit 翻譯錯誤:', error);
+        batch.forEach((item) => {
+            item.loader.remove();
+            item.el.dataset.tgTranslated = '';
+        });
+        applyBatchProgress(0, batch.length);
+        console.error('❌ Reddit 批次翻譯錯誤:', error);
     } finally {
         activeRequests--;
         processQueue();

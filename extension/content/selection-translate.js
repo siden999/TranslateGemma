@@ -6,7 +6,9 @@
 // ============== 設定 ==============
 let selectionSettings = {
     targetLang: 'zh-TW',
-    selectionEnabled: true
+    selectionEnabled: true,
+    translationMode: 'balanced',
+    customGlossary: ''
 };
 
 let activePopup = null;
@@ -151,8 +153,17 @@ async function translateSelection(text, contentEl) {
         const response = await chrome.runtime.sendMessage({
             action: 'translate',
             text: text,
-            sourceLang: 'en',
-            targetLang: selectionSettings.targetLang
+            sourceLang: 'auto',
+            targetLang: selectionSettings.targetLang,
+            options: {
+                site: 'selection',
+                contentType: 'selection',
+                translationMode: selectionSettings.translationMode,
+                glossary: String(selectionSettings.customGlossary || '')
+                    .split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(Boolean)
+            }
         });
 
         if (response?.success && response.translation) {

@@ -25,12 +25,14 @@
 1. 進到資料夾裡的 `launcher`
 2. **雙擊** `install_mac.command`
 3. 等它跑完（第一次會下載模型，可能要等幾分鐘）
+4. 之後請從 `~/Library/Application Support/TranslateGemma/extension` 載入 Chrome 未封裝擴充
 
 ### Windows
 1. 進到資料夾裡的 `launcher`
 2. **右鍵** `install_win.ps1` → 選「使用 PowerShell 執行」
 3. 如果跳出警告，按「允許」
 4. 等它跑完（第一次會下載模型，可能要等幾分鐘）
+5. 之後請從 `%LOCALAPPDATA%\TranslateGemma\extension` 載入 Chrome 未封裝擴充
 
 ---
 
@@ -39,7 +41,7 @@
 2. 在網址列輸入：`chrome://extensions/`
 3. 右上角打開「開發者模式」
 4. 按「載入未封裝項目」
-5. 選擇你解壓縮資料夾裡的 `extension` 資料夾
+5. 選擇固定安裝位置裡的 `extension` 資料夾
 
 完成後，右上角會出現 TranslateGemma 圖示。
 

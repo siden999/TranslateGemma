@@ -9,11 +9,13 @@
 
 ### macOS
 1. 執行 `install_mac.command`
-2. 完成後會自動加入開機啟動
+2. 完成後會自動安裝到 `~/Library/Application Support/TranslateGemma`
+3. 完成後會自動加入開機啟動
 
 ### Windows
 1. 右鍵 `install_win.ps1` → **使用 PowerShell 執行**
-2. 完成後會加入登入自啟
+2. 完成後會自動安裝到 `%LOCALAPPDATA%\TranslateGemma`
+3. 完成後會加入登入自啟
 
 ## 啟動
 

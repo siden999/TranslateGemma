@@ -8,7 +8,10 @@ let ytSettings = {
     enabled: true,
     targetLang: 'zh-TW',
     translateTitle: true,
-    translateComments: true
+    translateComments: true,
+    translationMode: 'balanced',
+    customGlossary: '',
+    displayMode: 'dual'
 };
 
 // 狀態
@@ -27,7 +30,64 @@ const TG_RELOAD_KEY = 'tgAutoReloadedAt';
 
 // 限制：最多同時進行的翻譯請求數
 const MAX_CONCURRENT = 3;
+const SUBTITLE_BATCH_SIZE = 3;
 let activeRequests = 0;
+let progressState = {
+    site: 'youtube',
+    label: 'YouTube 翻譯',
+    status: 'idle',
+    total: 0,
+    completed: 0,
+    failed: 0,
+    pending: 0,
+    detail: ''
+};
+
+function parseGlossary() {
+    return String(ytSettings.customGlossary || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+}
+
+function reportProgress(patch = {}) {
+    progressState = { ...progressState, ...patch };
+    chrome.runtime.sendMessage({
+        action: 'updatePageProgress',
+        progress: progressState
+    }, () => {
+        void chrome.runtime.lastError;
+    });
+}
+
+function clearProgress() {
+    progressState = {
+        site: 'youtube',
+        label: 'YouTube 翻譯',
+        status: 'idle',
+        total: 0,
+        completed: 0,
+        failed: 0,
+        pending: 0,
+        detail: ''
+    };
+    chrome.runtime.sendMessage({ action: 'clearPageProgress' }, () => {
+        void chrome.runtime.lastError;
+    });
+}
+
+function updateSubtitleProgress(completedDelta, failedDelta) {
+    const completed = progressState.completed + completedDelta;
+    const failed = progressState.failed + failedDelta;
+    const pending = Math.max(0, progressState.total - completed - failed);
+    reportProgress({
+        completed,
+        failed,
+        pending,
+        status: pending === 0 ? 'complete' : 'running',
+        detail: pending === 0 ? '目前字幕已翻譯完成' : `字幕剩餘 ${pending} 段`
+    });
+}
 
 function isInvalidatedError(error) {
     const message = (error && error.message) ? error.message : String(error || '');
@@ -108,6 +168,7 @@ async function initYouTube() {
         }
         const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
         ytSettings = { ...ytSettings, ...response };
+        window.TranslateGemmaDisplay?.apply(ytSettings.displayMode);
     } catch (e) {
         if (isInvalidatedError(e)) {
             handleContextInvalidated(e.message || 'settings failed');
@@ -124,13 +185,15 @@ async function initYouTube() {
         waitForTitleAndDescription();
         waitForComments();
         waitForRelatedVideos();
+    } else {
+        clearProgress();
     }
 }
 
 /**
  * 核心翻譯函式 (重用)
  */
-async function translateText(text, targetLang = 'zh-TW') {
+async function translateText(text, targetLang = 'zh-TW', options = {}) {
     if (!text || !text.trim()) return null;
     if (contextInvalidated) return null;
     if (!chrome.runtime?.id) {
@@ -148,7 +211,13 @@ async function translateText(text, targetLang = 'zh-TW') {
             action: 'translate',
             text: text,
             sourceLang: 'auto', // 讓伺服器自動偵測
-            targetLang: targetLang
+            targetLang: targetLang,
+            options: {
+                site: 'youtube',
+                translationMode: ytSettings.translationMode,
+                glossary: parseGlossary(),
+                ...options
+            }
         });
 
         if (response?.success && response.translation) {
@@ -171,6 +240,61 @@ async function translateText(text, targetLang = 'zh-TW') {
         console.error('翻譯請求失敗:', e);
     }
     return null;
+}
+
+async function translateTextBatch(texts, targetLang = 'zh-TW', options = {}) {
+    const normalizedTexts = texts
+        .map(text => String(text || '').trim())
+        .filter(Boolean);
+    if (normalizedTexts.length === 0) return [];
+
+    const results = new Array(normalizedTexts.length).fill(null);
+    const pendingTexts = [];
+    const pendingIndexes = [];
+
+    normalizedTexts.forEach((text, index) => {
+        if (translatedSubtitles.has(text) && translatedSubtitles.get(text)) {
+            results[index] = translatedSubtitles.get(text);
+            return;
+        }
+        pendingTexts.push(text);
+        pendingIndexes.push(index);
+    });
+
+    if (pendingTexts.length > 0) {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'translateBatch',
+                texts: pendingTexts,
+                sourceLang: 'auto',
+                targetLang,
+                options: {
+                    site: 'youtube',
+                    translationMode: ytSettings.translationMode,
+                    glossary: parseGlossary(),
+                    ...options
+                }
+            });
+
+            if (response?.success && Array.isArray(response.translations)) {
+                pendingIndexes.forEach((resultIndex, batchIndex) => {
+                    const translation = response.translations[batchIndex] || null;
+                    if (translation) {
+                        translatedSubtitles.set(normalizedTexts[resultIndex], translation);
+                    }
+                    results[resultIndex] = translation;
+                });
+            }
+        } catch (e) {
+            if (isInvalidatedError(e)) {
+                handleContextInvalidated(e.message || 'translate batch failed');
+                return results;
+            }
+            console.error('批次翻譯請求失敗:', e);
+        }
+    }
+
+    return results;
 }
 
 // ==========================================
@@ -209,38 +333,72 @@ async function processSubtitles() {
     isProcessing = true;
 
     try {
+        const pendingSegments = [];
         const segments = document.querySelectorAll('.ytp-caption-segment');
         for (const segment of segments) {
+            const text = segment.textContent.trim();
+            if (!text) continue;
+            const now = Date.now();
+            const retryAt = parseInt(segment.dataset.tgRetryAt || '0', 10);
+            if (retryAt && now < retryAt) continue;
+            if (segment.dataset.tgLastText === text && segment.dataset.tgTranslated === 'true') continue;
+            segment.dataset.tgLastText = text;
+            pendingSegments.push({ segment, text });
+        }
+
+        if (pendingSegments.length === 0) {
+            if (progressState.status === 'running') {
+                reportProgress({
+                    status: 'complete',
+                    pending: 0,
+                    detail: '目前字幕已同步'
+                });
+            }
+            return;
+        }
+
+        reportProgress({
+            status: 'running',
+            total: pendingSegments.length,
+            completed: 0,
+            failed: 0,
+            pending: pendingSegments.length,
+            detail: `字幕待翻譯 ${pendingSegments.length} 段`
+        });
+
+        for (let i = 0; i < pendingSegments.length; i += SUBTITLE_BATCH_SIZE) {
             if (activeRequests >= MAX_CONCURRENT) await new Promise(r => setTimeout(r, 100));
-            await translateSegment(segment);
+            await translateSegmentBatch(pendingSegments.slice(i, i + SUBTITLE_BATCH_SIZE));
         }
     } finally {
         isProcessing = false;
     }
 }
 
-async function translateSegment(segment) {
-    const text = segment.textContent.trim();
-    if (!text) return;
-    const now = Date.now();
-    const retryAt = parseInt(segment.dataset.tgRetryAt || '0', 10);
-    if (retryAt && now < retryAt) return;
-    if (segment.dataset.tgLastText === text && segment.dataset.tgTranslated === 'true') return;
-
-    segment.dataset.tgLastText = text;
+async function translateSegmentBatch(items) {
+    if (!items.length) return;
     activeRequests++;
-
-    const translation = await translateText(text, ytSettings.targetLang);
+    const translations = await translateTextBatch(items.map(item => item.text), ytSettings.targetLang, {
+        contentTypes: items.map(() => 'subtitle')
+    });
     activeRequests--;
 
-    if (translation) {
-        showSubtitleTranslation(segment, translation);
-        segment.dataset.tgTranslated = 'true';
-        segment.dataset.tgRetryAt = '0';
-    } else {
-        segment.dataset.tgTranslated = 'false';
-        segment.dataset.tgRetryAt = String(Date.now() + 1500);
-    }
+    let completedCount = 0;
+    let failedCount = 0;
+    items.forEach((item, index) => {
+        const translation = translations[index];
+        if (translation) {
+            showSubtitleTranslation(item.segment, translation);
+            item.segment.dataset.tgTranslated = 'true';
+            item.segment.dataset.tgRetryAt = '0';
+            completedCount++;
+        } else {
+            item.segment.dataset.tgTranslated = 'false';
+            item.segment.dataset.tgRetryAt = String(Date.now() + 1500);
+            failedCount++;
+        }
+    });
+    updateSubtitleProgress(completedCount, failedCount);
 }
 
 function showSubtitleTranslation(segment, translation) {
@@ -252,6 +410,8 @@ function showSubtitleTranslation(segment, translation) {
     }
     const el = document.createElement('div');
     el.className = 'tg-yt-trans';
+    window.TranslateGemmaDisplay?.markOriginal(segment);
+    window.TranslateGemmaDisplay?.markTranslation(el);
     el.textContent = translation;
     segment.parentElement.appendChild(el);
 }
@@ -278,15 +438,22 @@ async function processTitle(titleEl) {
     // 簡單檢測：如果是中文就不翻譯
     if (/[\u4e00-\u9fff]/.test(text)) return;
 
-    if (titleEl.dataset.tgLastText === text && titleEl.querySelector('.tg-title-trans')) return;
+    if (titleEl.dataset.tgLastText === text && titleEl.parentElement?.querySelector('.tg-title-trans')) return;
     titleEl.dataset.tgLastText = text;
 
-    const translation = await translateText(text, ytSettings.targetLang);
+    const translation = await translateText(text, ytSettings.targetLang, { contentType: 'title' });
     if (translation) {
-        const transEl = document.createElement('div');
-        transEl.className = 'tg-title-trans';
+        let transEl = titleEl.parentElement?.querySelector('.tg-title-trans');
+        if (!transEl) {
+            transEl = document.createElement('div');
+            transEl.className = 'tg-title-trans';
+        }
+        window.TranslateGemmaDisplay?.markOriginal(titleEl);
+        window.TranslateGemmaDisplay?.markTranslation(transEl);
         transEl.textContent = translation;
-        titleEl.appendChild(transEl);
+        if (!transEl.parentElement) {
+            titleEl.insertAdjacentElement('afterend', transEl);
+        }
     } else {
         // 失敗時稍後再試一次
         setTimeout(() => processTitle(titleEl), 1500);
@@ -304,16 +471,22 @@ async function processDescription() {
 
     if (/[\u4e00-\u9fff]/.test(text)) return; // 略過中文
 
-    if (descEl.dataset.tgLastText === text && descEl.querySelector('.tg-desc-trans')) return;
+    if (descEl.dataset.tgLastText === text && descEl.parentElement?.querySelector('.tg-desc-trans')) return;
     descEl.dataset.tgLastText = text;
 
-    const translation = await translateText(text, ytSettings.targetLang);
+    const translation = await translateText(text, ytSettings.targetLang, { contentType: 'paragraph' });
     if (translation) {
-        const transEl = document.createElement('div');
-        transEl.className = 'tg-desc-trans';
+        let transEl = descEl.parentElement?.querySelector('.tg-desc-trans');
+        if (!transEl) {
+            transEl = document.createElement('div');
+            transEl.className = 'tg-desc-trans';
+        }
+        window.TranslateGemmaDisplay?.markOriginal(descEl);
+        window.TranslateGemmaDisplay?.markTranslation(transEl);
         transEl.textContent = `📝 ${translation}...`;
-        // 插入在說明欄頂部
-        descEl.insertBefore(transEl, descEl.firstChild);
+        if (!transEl.parentElement) {
+            descEl.insertAdjacentElement('beforebegin', transEl);
+        }
     } else {
         setTimeout(() => processDescription(), 1500);
     }
@@ -370,18 +543,27 @@ async function translateComment(commentEl) {
 
     const retryAt = parseInt(commentEl.dataset.tgRetryAt || '0', 10);
     if (retryAt && Date.now() < retryAt) return;
-    if (commentEl.dataset.tgLastText === text && commentEl.querySelector('.tg-comment-trans')) return;
+    if (commentEl.dataset.tgLastText === text && commentEl.nextElementSibling?.classList?.contains('tg-comment-trans')) return;
     commentEl.dataset.tgLastText = text;
 
     // 加入翻譯按鈕而非直接翻譯，或是直接翻譯但樣式區隔
     // 為求簡潔，直接顯示翻譯在下方
-    const translation = await translateText(text, ytSettings.targetLang);
+    const translation = await translateText(text, ytSettings.targetLang, { contentType: 'comment' });
 
     if (translation) {
-        const transEl = document.createElement('div');
-        transEl.className = 'tg-comment-trans';
+        let transEl = commentEl.nextElementSibling?.classList?.contains('tg-comment-trans')
+            ? commentEl.nextElementSibling
+            : null;
+        if (!transEl) {
+            transEl = document.createElement('div');
+            transEl.className = 'tg-comment-trans';
+        }
+        window.TranslateGemmaDisplay?.markOriginal(commentEl);
+        window.TranslateGemmaDisplay?.markTranslation(transEl);
         transEl.textContent = translation;
-        commentEl.appendChild(transEl);
+        if (!transEl.parentElement) {
+            commentEl.insertAdjacentElement('afterend', transEl);
+        }
         commentEl.dataset.tgRetryAt = '0';
     } else {
         const retryCount = parseInt(commentEl.dataset.tgRetryCount || '0', 10);
@@ -523,7 +705,7 @@ async function translateRelatedVideo(element) {
 
     // 翻譯
     element.dataset.tgProcessing = 'true';
-    const translation = await translateText(text, ytSettings.targetLang);
+    const translation = await translateText(text, ytSettings.targetLang, { contentType: 'title' });
     element.dataset.tgProcessing = 'false';
 
     if (!translation) {
@@ -538,6 +720,8 @@ async function translateRelatedVideo(element) {
         transEl = document.createElement('div');
         transEl.className = 'tg-related-title-trans';
     }
+    window.TranslateGemmaDisplay?.markOriginal(titleEl);
+    window.TranslateGemmaDisplay?.markTranslation(transEl);
     transEl.textContent = translation;
 
     // 插入到標題容器中，通常是標題的下一個兄弟節點，或者 parent 的最後
@@ -570,7 +754,7 @@ function translateSidebarTitleElement(titleEl) {
     }
 
     anchor.dataset.tgProcessing = 'true';
-    translateText(text, ytSettings.targetLang).then(translation => {
+    translateText(text, ytSettings.targetLang, { contentType: 'title' }).then(translation => {
         anchor.dataset.tgProcessing = 'false';
         if (!translation) {
             scheduleRelatedVideoRetry(anchor, () => translateSidebarTitleElement(titleEl));
@@ -585,6 +769,8 @@ function translateSidebarTitleElement(titleEl) {
             transEl = document.createElement('div');
             transEl.className = 'tg-related-title-trans';
         }
+        window.TranslateGemmaDisplay?.markOriginal(titleEl);
+        window.TranslateGemmaDisplay?.markTranslation(transEl);
         transEl.textContent = translation;
         if (!transEl.parentElement) anchor.insertAdjacentElement('afterend', transEl);
     });
@@ -734,6 +920,10 @@ spaTimer = setInterval(() => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'updateSettings') {
         ytSettings = { ...ytSettings, ...request.settings };
+        window.TranslateGemmaDisplay?.apply(ytSettings.displayMode);
+        if (!ytSettings.enabled) {
+            clearProgress();
+        }
         sendResponse({ success: true });
     }
     if (request.action === 'ping') {

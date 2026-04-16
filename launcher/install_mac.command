@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-LAUNCHER_DIR="$ROOT_DIR/launcher"
+SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INSTALL_ROOT="$HOME/Library/Application Support/TranslateGemma"
+LAUNCHER_DIR="$INSTALL_ROOT/launcher"
+SERVER_DIR="$INSTALL_ROOT/server"
+EXTENSION_DIR="$INSTALL_ROOT/extension"
 
 PY_BIN=""
 if command -v python3 >/dev/null 2>&1; then
@@ -13,6 +16,24 @@ else
     echo "找不到 Python 3，請先安裝 Python 3.10+"
     exit 1
 fi
+
+mkdir -p "$INSTALL_ROOT" "$SERVER_DIR" "$EXTENSION_DIR"
+
+rsync -a --delete \
+    --exclude '.venv' \
+    --exclude 'launcher.log' \
+    "$SOURCE_ROOT/launcher/" "$LAUNCHER_DIR/"
+
+rsync -a --delete \
+    --exclude '.venv' \
+    --exclude 'logs' \
+    --exclude 'models' \
+    "$SOURCE_ROOT/server/" "$SERVER_DIR/"
+
+mkdir -p "$SERVER_DIR/models" "$SERVER_DIR/logs"
+
+rsync -a --delete \
+    "$SOURCE_ROOT/extension/" "$EXTENSION_DIR/"
 
 cd "$LAUNCHER_DIR"
 
@@ -55,3 +76,5 @@ launchctl unload "$PLIST" >/dev/null 2>&1 || true
 launchctl load "$PLIST"
 
 echo "✅ Launcher 已安裝並設定為開機自動啟動"
+echo "📁 固定安裝位置：$INSTALL_ROOT"
+echo "🧩 Chrome 未封裝擴充請載入：$EXTENSION_DIR"
