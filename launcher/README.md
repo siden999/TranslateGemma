@@ -41,7 +41,7 @@ python launcher.py --tray
 ## 記錄檔
 
 - 翻譯伺服器：`server/logs/server.log`
-- Launcher（macOS）：`launcher/launcher.log`
+- Launcher：`launcher/launcher.log`
 
 ## 移除
 

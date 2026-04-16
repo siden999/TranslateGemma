@@ -60,6 +60,7 @@
 
 > 注意：安裝會先建立 Launcher 環境並在背景啟動 Launcher。第一次在擴充功能裡按「啟動」時，才會建立 server 環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
 > 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
+> 若 Windows 上仍顯示「Launcher 未啟動」，請先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`。
 
 **一鍵移除**
 

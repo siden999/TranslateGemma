@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $installRoot = Join-Path $env:LOCALAPPDATA "TranslateGemma"
 $launcherDir = Join-Path $installRoot "launcher"
+$startupShortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\TranslateGemma Launcher.lnk"
 
 # 嘗試讓 Launcher 自行退出
 try {
@@ -14,6 +15,12 @@ try {
 $taskName = "TranslateGemma Launcher"
 try {
     schtasks /Delete /TN "$taskName" /F | Out-Null
+} catch {
+    # ignore
+}
+
+try {
+    Remove-Item -Force $startupShortcut
 } catch {
     # ignore
 }

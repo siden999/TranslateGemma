@@ -33,6 +33,7 @@
 3. 如果跳出警告，按「允許」
 4. 等它跑完（安裝器會先啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 5. 之後請從 `%LOCALAPPDATA%\TranslateGemma\extension` 載入 Chrome 未封裝擴充
+6. 如果仍顯示「Launcher 未啟動」，先看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 ---
 
@@ -59,6 +60,7 @@
 ## 常見小問題
 **Q1：按了啟動沒反應？**
 - 等 1～2 分鐘（第一次會載入模型）
+- 如果連「Launcher 未啟動」都一直出現，先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 **Q2：重開機後還要再按啟動嗎？**
 - 需要。Launcher 會自動在背景啟動，但伺服器預設是「關閉」，要你按一次啟動。

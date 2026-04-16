@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import platform
 import signal
@@ -21,6 +22,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+LAUNCHER_DIR = Path(__file__).resolve().parent
 SERVER_DIR = ROOT_DIR / "server"
 VENV_DIR = SERVER_DIR / ".venv"
 MODELS_DIR = SERVER_DIR / "models"
@@ -28,6 +30,7 @@ HF_DOWNLOAD_DIR = MODELS_DIR / ".cache" / "huggingface" / "download"
 LOG_DIR = SERVER_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "server.log"
+LAUNCHER_LOG_FILE = LAUNCHER_DIR / "launcher.log"
 
 STATE_DIR = ROOT_DIR / "state"
 RUNTIME_CONFIG_PATH = STATE_DIR / "runtime_config.json"
@@ -95,6 +98,24 @@ DEFAULT_RUNTIME_CONFIG = {
 APP_STATE: dict[str, object] = {}
 
 
+def configure_logging() -> logging.Logger:
+    handlers: list[logging.Handler] = [
+        logging.FileHandler(LAUNCHER_LOG_FILE, encoding="utf-8"),
+    ]
+    if getattr(sys, "stdout", None):
+        handlers.append(logging.StreamHandler(sys.stdout))
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+    return logging.getLogger("translategemma.launcher")
+
+
+LOGGER = configure_logging()
+
+
 def shutil_which(cmd: str) -> bool:
     return any(
         os.access(os.path.join(path, cmd), os.X_OK)
@@ -151,15 +172,18 @@ class ServerManager:
     def ensure_venv(self) -> Path:
         venv_python = self._venv_python()
         if venv_python.exists():
+            LOGGER.info("Using existing server venv: %s", venv_python)
             return venv_python
 
         py = self._system_python()
         try:
+            LOGGER.info("Creating server venv with %s", py)
             subprocess.check_call([py, "-m", "venv", str(VENV_DIR)])
             subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
             subprocess.check_call([str(venv_python), "-m", "pip", "install", "-r", str(SERVER_DIR / "requirements.txt")])
-        except subprocess.CalledProcessError as exc:
+        except Exception as exc:
             self._last_error = f"venv setup failed: {exc}"
+            LOGGER.exception("Failed to prepare server virtualenv")
         if venv_python.exists():
             return venv_python
         return Path(py)
@@ -264,6 +288,7 @@ class ServerManager:
         with self._lock:
             self._cleanup_exited_process()
             if self._proc and self._proc.poll() is None:
+                LOGGER.info("Server already running with pid=%s", self._proc.pid)
                 return self.status()
 
             runtime_config = self._load_runtime_config()
@@ -274,6 +299,11 @@ class ServerManager:
 
             self._log_handle = open(LOG_FILE, "a", encoding="utf-8")
             try:
+                LOGGER.info(
+                    "Starting translation server with model=%s, python=%s",
+                    runtime_config.get("model_key"),
+                    venv_python,
+                )
                 self._proc = subprocess.Popen(
                     [str(venv_python), "main.py"],
                     cwd=str(SERVER_DIR),
@@ -282,21 +312,26 @@ class ServerManager:
                     env=env,
                 )
                 self._last_error = None
+                LOGGER.info("Translation server started with pid=%s", self._proc.pid)
             except Exception as exc:
                 self._last_error = str(exc)
                 self._proc = None
+                LOGGER.exception("Failed to start translation server")
             return self.status()
 
     def stop(self) -> dict:
         with self._lock:
             self._cleanup_exited_process()
             if not self._proc:
+                LOGGER.info("Stop requested but server is not running")
                 return self.status()
 
+            LOGGER.info("Stopping translation server pid=%s", self._proc.pid)
             self._proc.terminate()
             try:
                 self._proc.wait(timeout=8)
             except subprocess.TimeoutExpired:
+                LOGGER.warning("Server pid=%s did not exit in time; killing", self._proc.pid)
                 self._proc.kill()
             self._cleanup_exited_process()
             return self.status()
@@ -327,6 +362,7 @@ class ServerManager:
             target_key = str(model_key or runtime["model_key"]).lower()
             if target_key not in MODEL_VARIANTS:
                 self._last_error = f"unknown model key: {target_key}"
+                LOGGER.warning("Unknown model key for delete_model: %s", target_key)
                 return self.status()
 
             if self.is_running() and runtime["model_key"] == target_key:
@@ -338,8 +374,10 @@ class ServerManager:
                 if model_path.exists():
                     model_path.unlink()
                 self._last_error = None
+                LOGGER.info("Deleted model file: %s", model_path)
             except Exception as exc:
                 self._last_error = f"delete model failed: {exc}"
+                LOGGER.exception("Failed to delete model file: %s", model_path)
             return self.status()
 
     def is_running(self) -> bool:
@@ -519,6 +557,7 @@ def run_control_server(manager: ServerManager) -> ThreadingHTTPServer:
     APP_STATE["httpd"] = httpd
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
+    LOGGER.info("Control server listening on http://127.0.0.1:%s", CONTROL_PORT)
     return httpd
 
 
@@ -566,6 +605,7 @@ def run_tray(manager: ServerManager, httpd: ThreadingHTTPServer):
 
 
 def shutdown_app():
+    LOGGER.info("Shutting down launcher")
     manager = APP_STATE.get("manager")
     httpd = APP_STATE.get("httpd")
     if isinstance(manager, ServerManager):
@@ -585,6 +625,12 @@ def main():
     parser.add_argument("--no-auto-start", action="store_true", help="Do not auto start server")
     args = parser.parse_args()
 
+    LOGGER.info(
+        "Launcher starting on platform=%s root=%s args=%s",
+        platform.system(),
+        ROOT_DIR,
+        sys.argv[1:],
+    )
     manager = ServerManager()
     httpd = run_control_server(manager)
 
@@ -623,4 +669,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        LOGGER.exception("Launcher crashed with an unhandled exception")
+        raise

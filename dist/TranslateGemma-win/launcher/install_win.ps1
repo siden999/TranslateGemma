@@ -27,6 +27,23 @@ function Test-LauncherReady {
     }
 }
 
+function Set-StartupShortcut {
+    param(
+        [string]$ShortcutPath,
+        [string]$TargetPath,
+        [string]$Arguments,
+        [string]$WorkingDirectory
+    )
+
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($ShortcutPath)
+    $shortcut.TargetPath = $TargetPath
+    $shortcut.Arguments = $Arguments
+    $shortcut.WorkingDirectory = $WorkingDirectory
+    $shortcut.WindowStyle = 7
+    $shortcut.Save()
+}
+
 Set-Location $launcherDir
 
 if (-not (Test-Path ".venv")) {
@@ -40,16 +57,23 @@ if (-not (Test-Path ".venv")) {
 $taskName = "TranslateGemma Launcher"
 $launcherPath = Join-Path $launcherDir "launcher.py"
 $pythonPath = Join-Path $launcherDir ".venv\Scripts\python.exe"
+$pythonwPath = Join-Path $launcherDir ".venv\Scripts\pythonw.exe"
+$backgroundPythonPath = if (Test-Path $pythonwPath) { $pythonwPath } else { $pythonPath }
 $args = "--no-tray"
+$startupDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
+$startupShortcutPath = Join-Path $startupDir "TranslateGemma Launcher.lnk"
+
+New-Item -ItemType Directory -Force -Path $startupDir | Out-Null
 
 schtasks /Delete /TN "$taskName" /F | Out-Null
-schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$pythonPath\" \"$launcherPath\" $args" | Out-Null
+schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$backgroundPythonPath\" \"$launcherPath\" $args" | Out-Null
+Set-StartupShortcut -ShortcutPath $startupShortcutPath -TargetPath $backgroundPythonPath -Arguments "`"$launcherPath`" $args" -WorkingDirectory $launcherDir
 
 if (Test-LauncherReady) {
     Write-Host "Launcher 已在背景執行" -ForegroundColor Green
 } else {
     Write-Host "正在啟動 Launcher 背景服務..."
-    Start-Process -FilePath $pythonPath -ArgumentList @($launcherPath, "--no-tray") -WorkingDirectory $launcherDir -WindowStyle Hidden | Out-Null
+    Start-Process -FilePath $backgroundPythonPath -ArgumentList @($launcherPath, "--no-tray") -WorkingDirectory $launcherDir -WindowStyle Hidden | Out-Null
 
     $launcherReady = $false
     for ($i = 0; $i -lt 10; $i++) {
@@ -63,8 +87,9 @@ if (Test-LauncherReady) {
     if ($launcherReady) {
         Write-Host "Launcher 已啟動，可直接回 Chrome 按「啟動」下載模型" -ForegroundColor Green
     } else {
-        Write-Host "Launcher 已安裝，但目前尚未回應；請重新登入 Windows，或手動執行 launcher.py" -ForegroundColor Yellow
+        Write-Host "Launcher 已安裝，但目前尚未回應；請重新登入 Windows，或檢查 $launcherDir\\launcher.log" -ForegroundColor Yellow
     }
 }
 
 Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor Green
+Write-Host "Launcher 記錄檔：$launcherDir\\launcher.log" -ForegroundColor Cyan

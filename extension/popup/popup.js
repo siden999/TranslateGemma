@@ -42,6 +42,20 @@ const runtimeBackendPill = document.getElementById('runtimeBackendPill');
 const runtimeInfoText = document.getElementById('runtimeInfoText');
 const runtimeStatusText = document.getElementById('runtimeStatusText');
 
+const CONTROL_REFRESH_FAST_MS = 4000;
+const CONTROL_REFRESH_SLOW_MS = 30000;
+
+let controlRefreshTimer = null;
+
+function scheduleControlRefresh(delay = CONTROL_REFRESH_FAST_MS) {
+    if (controlRefreshTimer) {
+        clearTimeout(controlRefreshTimer);
+    }
+    controlRefreshTimer = setTimeout(() => {
+        refreshControlStatus();
+    }, delay);
+}
+
 function setHeaderStatus(state, text) {
     statusDot.classList.remove('online', 'offline');
     if (state === 'online') {
@@ -269,8 +283,16 @@ async function saveSettings() {
     }
 }
 
-async function refreshControlStatus() {
-    if (!serverStatusText || !serverToggle) return;
+async function refreshControlStatus(options = {}) {
+    const shouldReschedule = options.reschedule !== false;
+    let nextDelay = CONTROL_REFRESH_FAST_MS;
+
+    if (!serverStatusText || !serverToggle) {
+        if (shouldReschedule) {
+            scheduleControlRefresh(CONTROL_REFRESH_SLOW_MS);
+        }
+        return;
+    }
     serverToggle.disabled = true;
     serverStatusText.textContent = '檢查中...';
     if (memoryStatusText) {
@@ -292,6 +314,7 @@ async function refreshControlStatus() {
             renderCacheStats(null);
             renderRuntimePanel(null);
             setHeaderStatus('offline', 'Launcher 未啟動');
+            nextDelay = CONTROL_REFRESH_SLOW_MS;
             return;
         }
 
@@ -351,6 +374,11 @@ async function refreshControlStatus() {
         renderCacheStats(null);
         renderRuntimePanel(null);
         setHeaderStatus('offline', '狀態取得失敗');
+        nextDelay = CONTROL_REFRESH_SLOW_MS;
+    } finally {
+        if (shouldReschedule) {
+            scheduleControlRefresh(nextDelay);
+        }
     }
 }
 
@@ -505,7 +533,7 @@ function bindEvents() {
 async function init() {
     await Promise.all([
         checkServerStatus(),
-        refreshControlStatus(),
+        refreshControlStatus({ reschedule: false }),
         loadSettings(),
         refreshCacheStats(),
         refreshPageProgress()
@@ -513,7 +541,7 @@ async function init() {
 
     bindEvents();
 
-    setInterval(refreshControlStatus, 4000);
+    scheduleControlRefresh();
     setInterval(refreshCacheStats, 6000);
     setInterval(refreshPageProgress, 1500);
 }
