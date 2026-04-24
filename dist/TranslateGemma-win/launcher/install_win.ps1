@@ -1,7 +1,23 @@
 $ErrorActionPreference = "Stop"
 
-$rootDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$launcherDir = Join-Path $rootDir "launcher"
+$sourceRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$installRoot = Join-Path $env:LOCALAPPDATA "TranslateGemma"
+$launcherDir = Join-Path $installRoot "launcher"
+$serverDir = Join-Path $installRoot "server"
+$extensionDir = Join-Path $installRoot "extension"
+
+function Invoke-Robocopy {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [string[]]$Options
+    )
+
+    & robocopy $Source $Destination @Options | Out-Null
+    if ($LASTEXITCODE -gt 7) {
+        throw "robocopy failed with exit code $LASTEXITCODE"
+    }
+}
 
 $pythonExe = "python"
 $pythonArgs = @()
@@ -43,6 +59,14 @@ function Set-StartupShortcut {
     $shortcut.WindowStyle = 7
     $shortcut.Save()
 }
+
+New-Item -ItemType Directory -Force -Path $installRoot, $launcherDir, $serverDir, $extensionDir | Out-Null
+
+Invoke-Robocopy (Join-Path $sourceRoot "launcher") $launcherDir @("/MIR", "/XD", ".venv", "/XF", "launcher.log")
+Invoke-Robocopy (Join-Path $sourceRoot "server") $serverDir @("/MIR", "/XD", ".venv", "logs", "models")
+Invoke-Robocopy (Join-Path $sourceRoot "extension") $extensionDir @("/MIR")
+
+New-Item -ItemType Directory -Force -Path (Join-Path $serverDir "logs"), (Join-Path $serverDir "models") | Out-Null
 
 Set-Location $launcherDir
 
@@ -92,4 +116,6 @@ if (Test-LauncherReady) {
 }
 
 Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor Green
+Write-Host "固定安裝位置：$installRoot" -ForegroundColor Cyan
+Write-Host "Chrome 未封裝擴充請載入：$extensionDir" -ForegroundColor Cyan
 Write-Host "Launcher 記錄檔：$launcherDir\\launcher.log" -ForegroundColor Cyan

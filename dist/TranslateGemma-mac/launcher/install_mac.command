@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-LAUNCHER_DIR="$ROOT_DIR/launcher"
+SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INSTALL_ROOT="$HOME/Library/Application Support/TranslateGemma"
+LAUNCHER_DIR="$INSTALL_ROOT/launcher"
+SERVER_DIR="$INSTALL_ROOT/server"
+EXTENSION_DIR="$INSTALL_ROOT/extension"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST="$PLIST_DIR/com.translategemma.launcher.plist"
 LAUNCH_LABEL="com.translategemma.launcher"
@@ -39,8 +42,26 @@ install_native_host_manifest() {
 JSON
 }
 
-cd "$LAUNCHER_DIR"
+mkdir -p "$INSTALL_ROOT" "$SERVER_DIR" "$EXTENSION_DIR"
 mkdir -p "$PLIST_DIR"
+
+rsync -a --delete \
+    --exclude '.venv' \
+    --exclude 'launcher.log' \
+    "$SOURCE_ROOT/launcher/" "$LAUNCHER_DIR/"
+
+rsync -a --delete \
+    --exclude '.venv' \
+    --exclude 'logs' \
+    --exclude 'models' \
+    "$SOURCE_ROOT/server/" "$SERVER_DIR/"
+
+mkdir -p "$SERVER_DIR/models" "$SERVER_DIR/logs"
+
+rsync -a --delete \
+    "$SOURCE_ROOT/extension/" "$EXTENSION_DIR/"
+
+cd "$LAUNCHER_DIR"
 
 if [ ! -d ".venv" ]; then
     echo "🔧 建立 Launcher 虛擬環境..."
@@ -101,5 +122,7 @@ else
 fi
 
 echo "✅ Launcher 已安裝並設定為開機自動啟動"
+echo "📁 固定安裝位置：$INSTALL_ROOT"
+echo "🧩 Chrome 未封裝擴充請載入：$EXTENSION_DIR"
 echo "📝 Launcher 記錄檔：$LAUNCHER_DIR/launcher.log"
 echo "🔌 Native Host：$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/$NATIVE_HOST_NAME.json"

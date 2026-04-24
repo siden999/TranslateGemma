@@ -57,6 +57,7 @@
 - **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
 
 > 注意：安裝會先建立 Launcher 環境並在背景啟動 Launcher。第一次在擴充功能裡按「啟動」時，才會建立 server 環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
+> Release 安裝器會先把 launcher、server、extension 複製到固定安裝位置 `%LOCALAPPDATA%\TranslateGemma`，安裝後可搬動或刪除原始解壓資料夾。
 > 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
 > 若 Windows 上仍顯示「Launcher 未啟動」，請先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`。
 
@@ -144,8 +145,9 @@
 1. 開啟 Chrome 瀏覽器，在網址列輸入 `chrome://extensions/`。
 2. 開啟右上角的「**開發者模式 (Developer mode)**」。
 3. 點擊左上角的「**載入未封裝項目 (Load unpacked)**」。
-4. 選擇專案資料夾中的 `extension` 資料夾。
-5. 完成！現在前往 YouTube 即可體驗。
+4. 選擇 `%LOCALAPPDATA%\TranslateGemma\extension` 資料夾。
+5. 若你是從舊版升級，請按一次重新載入。
+6. 完成！現在前往 YouTube 即可體驗。
 
 ---
 

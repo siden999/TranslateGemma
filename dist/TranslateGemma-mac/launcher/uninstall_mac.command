@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-LAUNCHER_DIR="$ROOT_DIR/launcher"
+INSTALL_ROOT="$HOME/Library/Application Support/TranslateGemma"
+LAUNCHER_DIR="$INSTALL_ROOT/launcher"
 PLIST="$HOME/Library/LaunchAgents/com.translategemma.launcher.plist"
 LAUNCH_LABEL="com.translategemma.launcher"
 LAUNCH_DOMAIN="gui/$(id -u)"
@@ -18,13 +18,9 @@ rm -f "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/$NAT
 rm -f "$HOME/Library/Application Support/Google/ChromeForTesting/NativeMessagingHosts/$NATIVE_HOST_NAME.json"
 rm -f "$HOME/Library/Application Support/Chromium/NativeMessagingHosts/$NATIVE_HOST_NAME.json"
 
-# 刪除 Launcher 目錄（若是原始碼資料夾則保留）
-if [ -d "$ROOT_DIR/.git" ]; then
-    echo "偵測到原始碼資料夾，保留 launcher 目錄"
-else
-    cd /tmp
-    rm -rf "$LAUNCHER_DIR"
-fi
+# 刪除固定安裝目錄，不碰使用者下載的原始碼資料夾
+cd /tmp
+rm -rf "$INSTALL_ROOT"
 
 echo "✅ Launcher 已移除"
 read -p "按 Enter鍵 關閉視窗..."
