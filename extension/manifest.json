@@ -3,9 +3,11 @@
     "name": "TranslateGemma 沉浸式翻譯",
     "version": "1.0.1",
     "description": "使用本地 TranslateGemma AI 模型進行網頁雙語翻譯",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAk5/vrzRhEra4Wym+AswtypKBBbCnN4I7QWblvOL2xTPJhU2/c6d4AJoTmbg32FqSB4yUD6L7YxYPJ3LSYB4YCut7IVhBPLdlDNDjg0SHGWbDUQIrVWWSwzR11zoIBlqny/cCn7ZE+H2LZTX52LdR7+U1xte8RusvGXWRLYrf1qzLEYwq4yGogy6u5NKn/2fCFacL5jIlMhVEr0LcJQJTdDScMRVsJUrNOrLam/RhytbTQxGL9IDvBGrh22EHWBquYkWYlwQpRl4rBcAh9YfFaKCV4VuJKAsH1ksICdOEgu400dENwawSsKwJInb5Ttp0j2bzRLhPJ5OOqUab4tSJwwIDAQAB",
     "permissions": [
         "activeTab",
-        "storage"
+        "storage",
+        "nativeMessaging"
     ],
     "host_permissions": [
         "http://127.0.0.1:8080/*",

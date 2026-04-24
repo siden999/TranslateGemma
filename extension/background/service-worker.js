@@ -5,6 +5,9 @@
 
 const API_BASE_URL = 'http://127.0.0.1:8080';
 const CONTROL_BASE_URL = 'http://127.0.0.1:18181';
+const NATIVE_HOST_NAME = 'com.translategemma.launcher';
+const LAUNCHER_BOOT_TIMEOUT_MS = 15000;
+const LAUNCHER_BOOT_POLL_MS = 500;
 
 const translationCache = new Map();
 const pageProgressByTab = new Map();
@@ -45,14 +48,80 @@ async function getControlStatus() {
     }
 }
 
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sendNativeHostMessage(message) {
+    return new Promise((resolve) => {
+        try {
+            chrome.runtime.sendNativeMessage(NATIVE_HOST_NAME, message, (response) => {
+                if (chrome.runtime.lastError) {
+                    resolve({ ok: false, error: chrome.runtime.lastError.message });
+                    return;
+                }
+                resolve(response || { ok: false, error: 'Native host returned no response' });
+            });
+        } catch (error) {
+            resolve({ ok: false, error: error.message });
+        }
+    });
+}
+
+async function ensureLauncherAvailable(timeoutMs = LAUNCHER_BOOT_TIMEOUT_MS) {
+    const existingStatus = await getControlStatus();
+    if (existingStatus?.ok) {
+        return { ok: true, data: existingStatus.data, launched: false };
+    }
+
+    const bridgeResult = await sendNativeHostMessage({
+        action: 'ensure_launcher',
+        timeout_ms: timeoutMs
+    });
+    if (!bridgeResult?.ok) {
+        return {
+            ok: false,
+            error: bridgeResult?.error || existingStatus?.error || 'Failed to start Launcher via native host'
+        };
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const status = await getControlStatus();
+        if (status?.ok) {
+            return { ok: true, data: status.data, launched: true };
+        }
+        await wait(LAUNCHER_BOOT_POLL_MS);
+    }
+
+    return {
+        ok: false,
+        error: bridgeResult?.error || 'Launcher did not become reachable in time'
+    };
+}
+
+async function postStartServer() {
+    const response = await fetch(`${CONTROL_BASE_URL}/start`, { method: 'POST' });
+    const data = await response.json();
+    return { ok: true, data };
+}
+
 async function startServer() {
     try {
-        const response = await fetch(`${CONTROL_BASE_URL}/start`, { method: 'POST' });
-        const data = await response.json();
-        return { ok: true, data };
+        return await postStartServer();
     } catch (error) {
-        console.error('啟動伺服器失敗:', error);
-        return { ok: false, error: error.message };
+        console.error('啟動伺服器失敗，嘗試喚起 Launcher:', error);
+        const launcherResult = await ensureLauncherAvailable();
+        if (!launcherResult?.ok) {
+            return { ok: false, error: launcherResult?.error || error.message };
+        }
+
+        try {
+            return await postStartServer();
+        } catch (retryError) {
+            console.error('Launcher 喚起後仍無法啟動伺服器:', retryError);
+            return { ok: false, error: retryError.message };
+        }
     }
 }
 

@@ -26,6 +26,7 @@
 2. **雙擊** `install_mac.command`
 3. 等它跑完（會先安裝並啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 4. 之後請從 `~/Library/Application Support/TranslateGemma/extension` 載入 Chrome 未封裝擴充
+5. 如果仍顯示「Launcher 未啟動」，先看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
 
 ### Windows
 1. 進到資料夾裡的 `launcher`
@@ -43,6 +44,7 @@
 3. 右上角打開「開發者模式」
 4. 按「載入未封裝項目」
 5. 選擇固定安裝位置裡的 `extension` 資料夾
+6. 如果你是從舊版升級，請按一次「重新載入」
 
 完成後，右上角會出現 TranslateGemma 圖示。
 
@@ -51,7 +53,7 @@
 ## 第 4 步：開始使用
 1. 打開 YouTube
 2. 點右上角 TranslateGemma 圖示
-3. 按「啟動」（伺服器會開始工作；第一次會先下載模型）
+3. 按「啟動」（macOS 若 Launcher 尚未啟動，擴充會先嘗試自動喚起；第一次會先下載模型）
 4. 開啟影片字幕（CC）
 5. 看到翻譯就成功了 ✅
 
@@ -60,7 +62,8 @@
 ## 常見小問題
 **Q1：按了啟動沒反應？**
 - 等 1～2 分鐘（第一次會載入模型）
-- 如果連「Launcher 未啟動」都一直出現，先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+- macOS 若一直顯示「Launcher 未啟動」，先查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
+- Windows 若一直顯示「Launcher 未啟動」，先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 **Q2：重開機後還要再按啟動嗎？**
 - 需要。Launcher 會自動在背景啟動，但伺服器預設是「關閉」，要你按一次啟動。
