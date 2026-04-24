@@ -5,3 +5,4 @@ __pycache__/
 server/models/*.gguf
 *.log
 .env
+state/

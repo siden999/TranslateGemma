@@ -5,13 +5,33 @@ echo "🚀 正在啟動 TranslateGemma 翻譯伺服器..."
 echo "請勿關閉此視窗"
 echo ""
 
+MIN_PYTHON_MAJOR=3
+MIN_PYTHON_MINOR=10
+MAX_PYTHON_MAJOR=3
+MAX_PYTHON_MINOR=12
+LLAMA_CPP_METAL_WHEEL_INDEX="https://abetlen.github.io/llama-cpp-python/whl/metal"
+
+python_is_supported() {
+    "$1" - "$MIN_PYTHON_MAJOR" "$MIN_PYTHON_MINOR" "$MAX_PYTHON_MAJOR" "$MAX_PYTHON_MINOR" <<'PY'
+import sys
+
+minimum = (int(sys.argv[1]), int(sys.argv[2]))
+maximum = (int(sys.argv[3]), int(sys.argv[4]))
+current = sys.version_info[:2]
+raise SystemExit(0 if minimum <= current <= maximum else 1)
+PY
+}
+
 PYTHON_BIN=""
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="python3"
-elif command -v python >/dev/null 2>&1; then
-    PYTHON_BIN="python"
-else
-    echo "找不到 Python 3，請先安裝 Python 3.10+"
+for candidate in python3.12 python3.11 python3.10 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && python_is_supported "$candidate"; then
+        PYTHON_BIN="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PYTHON_BIN" ]; then
+    echo "找不到 Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}-${MAX_PYTHON_MAJOR}.${MAX_PYTHON_MINOR}，請先安裝 Python 3.12 後再執行"
     read -p "按 Enter鍵 關閉視窗..."
     exit 1
 fi
@@ -21,9 +41,15 @@ if [ ! -d ".venv" ]; then
     "$PYTHON_BIN" -m venv .venv
     source .venv/bin/activate
     python -m pip install --upgrade pip
-    python -m pip install -r requirements.txt
+    python -m pip install --no-cache-dir --prefer-binary --extra-index-url "$LLAMA_CPP_METAL_WHEEL_INDEX" -r requirements.txt
 else
     source .venv/bin/activate
+fi
+
+if ! python_is_supported "python"; then
+    echo "目前虛擬環境 Python 版本過舊，請刪除 server/.venv 後重新啟動"
+    read -p "按 Enter鍵 關閉視窗..."
+    exit 1
 fi
 
 get_py_ver() {

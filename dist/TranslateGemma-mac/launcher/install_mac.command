@@ -14,13 +14,33 @@ NATIVE_HOST_NAME="com.translategemma.launcher"
 EXTENSION_ORIGIN="chrome-extension://glkghkdgkpaflgolppmohgggighiphnn/"
 NATIVE_HOST_SCRIPT="$LAUNCHER_DIR/native_host.py"
 
+MIN_PYTHON_MAJOR=3
+MIN_PYTHON_MINOR=10
+MAX_PYTHON_MAJOR=3
+MAX_PYTHON_MINOR=12
+LLAMA_CPP_METAL_WHEEL_INDEX="https://abetlen.github.io/llama-cpp-python/whl/metal"
+
+python_is_supported() {
+    "$1" - "$MIN_PYTHON_MAJOR" "$MIN_PYTHON_MINOR" "$MAX_PYTHON_MAJOR" "$MAX_PYTHON_MINOR" <<'PY'
+import sys
+
+minimum = (int(sys.argv[1]), int(sys.argv[2]))
+maximum = (int(sys.argv[3]), int(sys.argv[4]))
+current = sys.version_info[:2]
+raise SystemExit(0 if minimum <= current <= maximum else 1)
+PY
+}
+
 PY_BIN=""
-if command -v python3 >/dev/null 2>&1; then
-    PY_BIN="python3"
-elif command -v python >/dev/null 2>&1; then
-    PY_BIN="python"
-else
-    echo "找不到 Python 3，請先安裝 Python 3.10+"
+for candidate in python3.12 python3.11 python3.10 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && python_is_supported "$candidate"; then
+        PY_BIN="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PY_BIN" ]; then
+    echo "找不到 Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}-${MAX_PYTHON_MAJOR}.${MAX_PYTHON_MINOR}，請先安裝 Python 3.12 後再執行"
     exit 1
 fi
 
@@ -40,6 +60,46 @@ install_native_host_manifest() {
   "allowed_origins": ["$EXTENSION_ORIGIN"]
 }
 JSON
+}
+
+prepare_server_environment() {
+    echo "🔧 建立/更新 Server 虛擬環境（首次安裝可能需要幾分鐘）..."
+    cd "$SERVER_DIR"
+
+    if [ ! -d ".venv" ]; then
+        "$PY_BIN" -m venv .venv
+    fi
+
+    SERVER_PY="$SERVER_DIR/.venv/bin/python"
+    if ! python_is_supported "$SERVER_PY"; then
+        echo "Server 虛擬環境的 Python 版本過舊，請刪除 $SERVER_DIR/.venv 後重新執行安裝器"
+        exit 1
+    fi
+
+    "$SERVER_PY" -m pip install --upgrade pip
+    "$SERVER_PY" -m pip install --no-cache-dir --prefer-binary --extra-index-url "$LLAMA_CPP_METAL_WHEEL_INDEX" -r requirements.txt
+
+    if "$SERVER_PY" - <<'PY'
+from pathlib import Path
+import llama_cpp
+
+metal = Path(llama_cpp.__file__).parent / "lib" / "libggml-metal.dylib"
+raise SystemExit(0 if metal.exists() else 1)
+PY
+    then
+        echo "✅ Server 相依套件已安裝，Metal GPU 支援可用"
+    else
+        echo "⚠️ Server 相依套件已安裝，但未偵測到 Metal；可先使用 CPU，或改用 Python.org/Homebrew Python 重新安裝"
+    fi
+
+    "$SERVER_PY" - <<'PY'
+import main
+import translator
+
+print("✅ Server Python 模組檢查完成")
+PY
+
+    cd "$LAUNCHER_DIR"
 }
 
 mkdir -p "$INSTALL_ROOT" "$SERVER_DIR" "$EXTENSION_DIR"
@@ -72,6 +132,8 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 chmod +x "$NATIVE_HOST_SCRIPT"
+
+prepare_server_environment
 
 install_native_host_manifest "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 install_native_host_manifest "$HOME/Library/Application Support/Google/ChromeForTesting/NativeMessagingHosts"

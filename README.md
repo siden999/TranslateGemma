@@ -43,7 +43,7 @@
 | 項目 | 最低需求 | 建議配置 |
 |------|---------|---------|
 | 作業系統 | macOS 12+ / Windows 10+ | macOS 14+ / Windows 11 |
-| Python | 3.10+ | 3.11+ |
+| Python | 3.10-3.12 | 3.12 |
 | 記憶體 | 8GB RAM | 16GB+ RAM |
 | 瀏覽器 | Chrome | Chrome |
 
@@ -58,7 +58,7 @@
 - **macOS**：執行 `launcher/install_mac.command`
 - **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
 
-> 注意：安裝會先建立 Launcher 環境並在背景啟動 Launcher。第一次在擴充功能裡按「啟動」時，才會建立 server 環境並下載模型（需要 Python 3.10+ 與網路）。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
+> 注意：安裝會先建立 Launcher 與 server 環境並在背景啟動 Launcher（需要 Python 3.10-3.12 與網路，建議 Python 3.12）。第一次在擴充功能裡按「啟動」時，才會下載模型。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
 > macOS 與 Windows 安裝器都會註冊 Native Host，因此擴充功能按下「啟動」時，若 Launcher 尚未運作，會先嘗試自動喚起本機 Launcher，再開始下載模型與啟動伺服器。
 > 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
 > 若 macOS 上仍顯示「Launcher 未啟動」，請先查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`。
@@ -97,10 +97,10 @@
    source .venv/bin/activate
    ```
 
-4. 安裝依賴 (啟用 Metal GPU 加速)：
+4. 安裝依賴：
 
    ```bash
-   CMAKE_ARGS="-DGGML_METAL=on" uv pip install -r requirements.txt
+   uv pip install --no-cache --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/metal -r requirements.txt
    ```
 
 5. 啟動伺服器：
@@ -133,7 +133,7 @@
    - **僅使用 CPU**：
 
      ```powershell
-     uv pip install -r requirements.txt
+     uv pip install --no-cache --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu -r requirements.txt
      ```
 
 5. 啟動伺服器：

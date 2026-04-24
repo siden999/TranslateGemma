@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 TranslateGemma 翻譯伺服器
 
@@ -64,8 +66,8 @@ class HealthResponse(BaseModel):
     """健康檢查回應"""
     status: str
     model_loaded: bool
-    model: str | None = None
-    runtime: dict | None = None
+    model: Optional[str] = None
+    runtime: Optional[dict] = None
 
 
 class CacheStatsResponse(BaseModel):

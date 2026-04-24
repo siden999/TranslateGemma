@@ -9,12 +9,12 @@
 
 ### macOS
 1. 執行 `install_mac.command`
-2. 內容會安裝到 `~/Library/Application Support/TranslateGemma`
+2. 完成後會自動安裝到 `~/Library/Application Support/TranslateGemma`
 3. 完成後會自動加入開機啟動，並註冊 Chrome Native Host
 
 ### Windows
 1. 右鍵 `install_win.ps1` → **使用 PowerShell 執行**
-2. 內容會安裝到 `%LOCALAPPDATA%\TranslateGemma`
+2. 完成後會自動安裝到 `%LOCALAPPDATA%\TranslateGemma`
 3. 完成後會加入登入自啟，並註冊 Chrome Native Host
 
 ## 啟動
@@ -40,9 +40,8 @@ python launcher.py --tray
 
 ## 記錄檔
 
-- 翻譯伺服器：`%LOCALAPPDATA%\TranslateGemma\server\logs\server.log`
-- Launcher（macOS）：`~/Library/Application Support/TranslateGemma/launcher/launcher.log`
-- Launcher（Windows）：`%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+- 翻譯伺服器：`server/logs/server.log`
+- Launcher：`launcher/launcher.log`
 
 ## 移除
 

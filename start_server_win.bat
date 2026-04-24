@@ -11,12 +11,19 @@ where python >nul 2>nul
 if errorlevel 1 (
     where py >nul 2>nul
     if errorlevel 1 (
-        echo 找不到 Python 3，請先安裝 Python 3.10+
+        echo 找不到 Python 3，請先安裝 Python 3.10-3.12
         pause
         exit /b 1
     ) else (
         set "PYTHON_BIN=py -3"
     )
+)
+
+%PYTHON_BIN% -c "import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)"
+if errorlevel 1 (
+    echo 找不到相容的 Python 3.10-3.12，請先安裝 Python 3.12 後再執行
+    pause
+    exit /b 1
 )
 
 if exist ".venv\Scripts\activate.bat" (
@@ -26,7 +33,7 @@ if exist ".venv\Scripts\activate.bat" (
     %PYTHON_BIN% -m venv .venv
     call .venv\Scripts\activate.bat
     python -m pip install --upgrade pip
-    python -m pip install -r requirements.txt
+    python -m pip install --no-cache-dir --prefer-binary --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu -r requirements.txt
 )
 
 set "SITE_PACKAGES=%CD%\.venv\Lib\site-packages"

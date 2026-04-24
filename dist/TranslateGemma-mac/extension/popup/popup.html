@@ -3,7 +3,6 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TranslateGemma</title>
     <link rel="stylesheet" href="popup.css">
 </head>
@@ -24,41 +23,198 @@
 
         <!-- 主要控制區 -->
         <main class="main">
-            <!-- 伺服器控制 -->
-            <div class="control-row">
-                <label class="control-label">
-                    <span>🧠 伺服器</span>
-                    <small id="serverStatusText" class="hint">檢查中...</small>
+            <section class="startup-card priority-card">
+                <div class="section-copy">
+                    <p class="startup-title">翻譯控制</p>
+                    <p class="startup-note">先切換常用網站、目標語言與顯示模式。</p>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">目標語言</label>
+                    <select id="targetLang" class="select">
+                        <option value="zh-TW">繁體中文</option>
+                        <option value="zh-CN">簡體中文</option>
+                        <option value="en">English</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
+                    </select>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>翻譯模式</span>
+                        <small>速度 / 平衡 / 品質</small>
+                    </label>
+                    <select id="translationMode" class="select">
+                        <option value="speed">速度優先</option>
+                        <option value="balanced">平衡</option>
+                        <option value="quality">品質優先</option>
+                    </select>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>顯示模式</span>
+                        <small>原文 / 雙語 / 只看譯文</small>
+                    </label>
+                    <select id="displayMode" class="select">
+                        <option value="original">只看原文</option>
+                        <option value="dual">雙語</option>
+                        <option value="translated">只看譯文</option>
+                    </select>
+                </div>
+
+                <div class="section-divider" aria-hidden="true"></div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>🎬 YouTube 翻譯</span>
+                        <small>字幕、標題、留言</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="enableToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>📰 文章翻譯</span>
+                        <small>新聞、部落格內文</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="articleToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>📚 Wikipedia</span>
+                        <small>維基百科各語言版本</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="wikipediaToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>🐙 GitHub</span>
+                        <small>README, Issue, PR</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="githubToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>🔴 Reddit</span>
+                        <small>帖子標題、留言</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="redditToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>✋ 選取翻譯</span>
+                        <small>選取文字自動翻譯</small>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="selectionToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="startup-card status-card">
+                <div class="section-copy">
+                    <p class="startup-title">伺服器與狀態</p>
+                    <p class="startup-note">啟動本機翻譯伺服器，查看下載與運行狀態。</p>
+                </div>
+
+                <div class="control-row">
+                    <label class="control-label">
+                        <span>🧠 伺服器</span>
+                        <small id="serverStatusText" class="hint">檢查中...</small>
+                    </label>
+                    <button id="serverToggle" class="server-btn" disabled>啟動</button>
+                </div>
+            </section>
+
+            <section class="startup-card" id="startupCard">
+                <p id="modelInfoText" class="startup-title">模型：TranslateGemma 4B (Q4_K_M)</p>
+                <p id="startupNoteText" class="startup-note">首次啟動需下載模型，可能需要幾分鐘。</p>
+                <div id="downloadProgressTrack" class="progress-track" hidden>
+                    <div id="downloadProgressBar" class="progress-fill"></div>
+                </div>
+                <p id="downloadProgressText" class="progress-text"></p>
+            </section>
+
+            <section class="startup-card" id="pageProgressCard" hidden>
+                <div class="section-head">
+                    <p id="pageProgressTitle" class="startup-title">目前頁面</p>
+                    <span id="pageProgressSite" class="pill">等待中</span>
+                </div>
+                <p id="pageProgressSummary" class="startup-note">此頁尚未開始翻譯。</p>
+                <div id="pageProgressTrack" class="progress-track" hidden>
+                    <div id="pageProgressBar" class="progress-fill"></div>
+                </div>
+                <p id="pageProgressText" class="progress-text"></p>
+            </section>
+
+            <section class="startup-card">
+                <label class="section-label" for="glossaryInput">
+                    <span>術語表</span>
+                    <small>每行一組，例如 `prompt=提示詞`</small>
                 </label>
-                <button id="serverToggle" class="server-btn" disabled>啟動</button>
-            </div>
+                <textarea id="glossaryInput" class="textarea" rows="4" placeholder="LLM=LLM&#10;prompt=提示詞&#10;fine-tuning=微調"></textarea>
+            </section>
 
-            <!-- YouTube 增強開關 -->
-            <div class="control-row">
-                <label class="control-label">
-                    <span>🎬 YouTube 翻譯</span>
-                    <small>字幕、標題、留言</small>
-                </label>
-                <label class="toggle">
-                    <input type="checkbox" id="enableToggle" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
+            <section class="startup-card cache-card">
+                <div>
+                    <p class="startup-title">翻譯快取</p>
+                    <p id="cacheStatsText" class="startup-note">伺服器啟動後可查看快取統計。</p>
+                </div>
+                <button id="clearCacheButton" class="secondary-btn" type="button">清除</button>
+            </section>
 
-            <!-- 目標語言 -->
-            <div class="control-row">
-                <label class="control-label">目標語言</label>
-                <select id="targetLang" class="select">
-                    <option value="zh-TW">繁體中文</option>
-                    <option value="zh-CN">簡體中文</option>
-                    <option value="en">English</option>
-                    <option value="ja">日本語</option>
-                    <option value="ko">한국어</option>
-                </select>
-            </div>
-
-
-
+            <section class="startup-card runtime-card">
+                <div class="section-head">
+                    <p class="startup-title">模型與 Runtime</p>
+                    <span id="runtimeBackendPill" class="pill">待偵測</span>
+                </div>
+                <p id="runtimeInfoText" class="startup-note">可切換量化模型並調整推論參數。</p>
+                <div class="runtime-grid">
+                    <label class="field-label" for="modelVariant">
+                        <span>模型量化</span>
+                        <select id="modelVariant" class="select"></select>
+                    </label>
+                    <label class="field-label" for="nCtxInput">
+                        <span>n_ctx</span>
+                        <input id="nCtxInput" class="text-input" type="number" min="512" max="8192" step="128">
+                    </label>
+                    <label class="field-label" for="nGpuLayersInput">
+                        <span>n_gpu_layers</span>
+                        <input id="nGpuLayersInput" class="text-input" type="number" min="-1" max="999" step="1">
+                    </label>
+                    <label class="field-label" for="nThreadsInput">
+                        <span>n_threads</span>
+                        <input id="nThreadsInput" class="text-input" type="number" min="0" max="64" step="1">
+                    </label>
+                </div>
+                <p id="runtimeStatusText" class="progress-text">若伺服器正在運行，套用後會自動重啟。</p>
+                <div class="button-row">
+                    <button id="applyRuntimeButton" class="secondary-btn primary-ghost" type="button">套用 Runtime</button>
+                    <button id="deleteModelButton" class="secondary-btn" type="button">刪除模型</button>
+                </div>
+            </section>
 
         </main>
 

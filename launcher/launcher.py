@@ -21,6 +21,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
 
+MIN_RUNTIME_PYTHON_VERSION = (3, 9)
+MIN_INSTALL_PYTHON_VERSION = (3, 10)
+MAX_INSTALL_PYTHON_VERSION = (3, 12)
+LLAMA_CPP_METAL_WHEEL_INDEX = "https://abetlen.github.io/llama-cpp-python/whl/metal"
+LLAMA_CPP_CPU_WHEEL_INDEX = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
 ROOT_DIR = Path(__file__).resolve().parents[1]
 LAUNCHER_DIR = Path(__file__).resolve().parent
 SERVER_DIR = ROOT_DIR / "server"
@@ -139,6 +144,45 @@ def backend_hint() -> str:
     return "CPU"
 
 
+def python_version_tuple(python_cmd: str | Path) -> tuple[int, int, int] | None:
+    try:
+        output = subprocess.check_output(
+            [
+                str(python_cmd),
+                "-c",
+                "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')",
+            ],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=10,
+        ).strip()
+        major, minor, micro = output.split(".", 2)
+        return int(major), int(minor), int(micro)
+    except Exception:
+        return None
+
+
+def is_runtime_python_supported(python_cmd: str | Path) -> bool:
+    version = python_version_tuple(python_cmd)
+    return version is not None and version[:2] >= MIN_RUNTIME_PYTHON_VERSION
+
+
+def is_install_python_supported(python_cmd: str | Path) -> bool:
+    version = python_version_tuple(python_cmd)
+    return (
+        version is not None
+        and version[:2] >= MIN_INSTALL_PYTHON_VERSION
+        and version[:2] <= MAX_INSTALL_PYTHON_VERSION
+    )
+
+
+def install_python_label() -> str:
+    return (
+        f"{MIN_INSTALL_PYTHON_VERSION[0]}.{MIN_INSTALL_PYTHON_VERSION[1]}-"
+        f"{MAX_INSTALL_PYTHON_VERSION[0]}.{MAX_INSTALL_PYTHON_VERSION[1]}"
+    )
+
+
 class ServerManager:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -161,32 +205,108 @@ class ServerManager:
             return VENV_DIR / "Scripts" / "python.exe"
         return VENV_DIR / "bin" / "python"
 
-    def _system_python(self) -> str:
-        if sys.executable and Path(sys.executable).exists():
+    def _system_python(self) -> str | None:
+        if sys.executable and Path(sys.executable).exists() and is_install_python_supported(sys.executable):
             return sys.executable
-        for candidate in ("python3", "python"):
-            if shutil_which(candidate):
+        for candidate in ("python3.12", "python3.11", "python3.10", "python3", "python"):
+            if shutil_which(candidate) and is_install_python_supported(candidate):
                 return candidate
-        return sys.executable
+        self._last_error = f"找不到 Python {install_python_label()}，請先安裝相容版本後重新執行安裝器"
+        LOGGER.error(self._last_error)
+        return None
 
-    def ensure_venv(self) -> Path:
+    def _requirements_install_command(self, venv_python: Path) -> list[str]:
+        command = [str(venv_python), "-m", "pip", "install", "--no-cache-dir", "--prefer-binary"]
+        if platform.system() == "Darwin":
+            command.extend(["--extra-index-url", LLAMA_CPP_METAL_WHEEL_INDEX])
+        elif platform.system() == "Windows":
+            command.extend(["--extra-index-url", LLAMA_CPP_CPU_WHEEL_INDEX])
+        command.extend(["-r", str(SERVER_DIR / "requirements.txt")])
+        return command
+
+    def _install_server_requirements(self, venv_python: Path) -> None:
+        subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call(self._requirements_install_command(venv_python))
+
+    def _metal_available(self, venv_python: Path) -> bool:
+        if platform.system() != "Darwin":
+            return True
+        try:
+            output = subprocess.check_output(
+                [
+                    str(venv_python),
+                    "-c",
+                    (
+                        "from pathlib import Path; import llama_cpp; "
+                        "print(int((Path(llama_cpp.__file__).parent / 'lib' / 'libggml-metal.dylib').exists()))"
+                    ),
+                ],
+                cwd=str(SERVER_DIR),
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=30,
+            ).strip()
+            return output == "1"
+        except Exception:
+            return False
+
+    def _server_modules_available(self, venv_python: Path) -> bool:
+        try:
+            subprocess.check_call(
+                [
+                    str(venv_python),
+                    "-c",
+                    "import fastapi, uvicorn, huggingface_hub, llama_cpp, pydantic; import main; import translator",
+                ],
+                cwd=str(SERVER_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return True
+        except Exception:
+            return False
+
+    def ensure_venv(self) -> Path | None:
         venv_python = self._venv_python()
         if venv_python.exists():
+            if not is_runtime_python_supported(venv_python):
+                version = python_version_tuple(venv_python)
+                version_label = ".".join(map(str, version)) if version else "unknown"
+                self._last_error = (
+                    f"server venv 使用 Python {version_label}，低於需求 "
+                    f"{MIN_RUNTIME_PYTHON_VERSION[0]}.{MIN_RUNTIME_PYTHON_VERSION[1]}+；"
+                    "請重新執行安裝器建立環境"
+                )
+                LOGGER.error(self._last_error)
+                return None
+            if not self._server_modules_available(venv_python):
+                try:
+                    LOGGER.info("Server venv exists but dependencies are incomplete; reinstalling requirements")
+                    self._install_server_requirements(venv_python)
+                except Exception as exc:
+                    self._last_error = f"venv dependency setup failed: {exc}"
+                    LOGGER.exception("Failed to repair server virtualenv")
+                    return None
             LOGGER.info("Using existing server venv: %s", venv_python)
             return venv_python
 
         py = self._system_python()
+        if py is None:
+            return None
         try:
             LOGGER.info("Creating server venv with %s", py)
             subprocess.check_call([py, "-m", "venv", str(VENV_DIR)])
-            subprocess.check_call([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
-            subprocess.check_call([str(venv_python), "-m", "pip", "install", "-r", str(SERVER_DIR / "requirements.txt")])
+            self._install_server_requirements(venv_python)
+            if platform.system() == "Darwin" and not self._metal_available(venv_python):
+                LOGGER.warning("Server dependencies installed, but Metal backend was not detected")
         except Exception as exc:
             self._last_error = f"venv setup failed: {exc}"
             LOGGER.exception("Failed to prepare server virtualenv")
+            return None
         if venv_python.exists():
             return venv_python
-        return Path(py)
+        self._last_error = "venv setup failed: server python was not created"
+        return None
 
     def _load_runtime_config(self) -> dict:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -293,6 +413,8 @@ class ServerManager:
 
             runtime_config = self._load_runtime_config()
             venv_python = self.ensure_venv()
+            if venv_python is None:
+                return self.status()
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
             env.update(self._runtime_env(runtime_config))

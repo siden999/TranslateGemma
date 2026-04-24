@@ -8,6 +8,24 @@ $extensionDir = Join-Path $installRoot "extension"
 $nativeHostName = "com.translategemma.launcher"
 $extensionOrigin = "chrome-extension://glkghkdgkpaflgolppmohgggighiphnn/"
 $nativeHostManifestPath = Join-Path $launcherDir "$nativeHostName.json"
+$minPythonMajor = 3
+$minPythonMinor = 10
+$maxPythonMajor = 3
+$maxPythonMinor = 12
+$llamaCppCpuWheelIndex = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
+
+function Invoke-Checked {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$ErrorMessage
+    )
+
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$ErrorMessage (exit code $LASTEXITCODE)"
+    }
+}
 
 function Invoke-Robocopy {
     param(
@@ -22,19 +40,47 @@ function Invoke-Robocopy {
     }
 }
 
-$pythonExe = "python"
-$pythonArgs = @()
-try {
-    & $pythonExe --version | Out-Null
-} catch {
+function Test-PythonSupported {
+    param(
+        [string]$Exe,
+        [string[]]$Args = @()
+    )
+
     try {
-        $pythonExe = "py"
-        $pythonArgs = @("-3")
-        & $pythonExe @pythonArgs --version | Out-Null
+        $versionText = & $Exe @Args -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+        $parts = $versionText.Trim().Split(".")
+        $major = [int]$parts[0]
+        $minor = [int]$parts[1]
+        $aboveMinimum = ($major -gt $minPythonMajor) -or ($major -eq $minPythonMajor -and $minor -ge $minPythonMinor)
+        $belowMaximum = ($major -lt $maxPythonMajor) -or ($major -eq $maxPythonMajor -and $minor -le $maxPythonMinor)
+        return $aboveMinimum -and $belowMaximum
     } catch {
-        Write-Host "找不到 Python 3，請先安裝 Python 3.10+" -ForegroundColor Red
-        exit 1
+        return $false
     }
+}
+
+$pythonExe = $null
+$pythonArgs = @()
+foreach ($candidate in @(
+    @{ Exe = "python3.12"; Args = @() },
+    @{ Exe = "python3.11"; Args = @() },
+    @{ Exe = "python3.10"; Args = @() },
+    @{ Exe = "python"; Args = @() },
+    @{ Exe = "py"; Args = @("-3") }
+)) {
+    if (Test-PythonSupported -Exe $candidate.Exe -Args $candidate.Args) {
+        $pythonExe = $candidate.Exe
+        $pythonArgs = $candidate.Args
+        break
+    }
+}
+
+if (-not $pythonExe) {
+    Write-Host "找不到 Python $minPythonMajor.$minPythonMinor-$maxPythonMajor.$maxPythonMinor，請先安裝 Python 3.12 後再執行" -ForegroundColor Red
+    exit 1
 }
 
 function Test-LauncherReady {
@@ -84,6 +130,26 @@ function Install-NativeHost {
     }
 }
 
+function Install-ServerEnvironment {
+    Write-Host "建立/更新 Server 虛擬環境（首次安裝可能需要幾分鐘）..."
+    Set-Location $serverDir
+
+    if (-not (Test-Path ".venv")) {
+        Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "建立 Server 虛擬環境失敗"
+    }
+
+    $serverPython = Join-Path $serverDir ".venv\Scripts\python.exe"
+    if (-not (Test-PythonSupported -Exe $serverPython)) {
+        throw "Server 虛擬環境的 Python 版本過舊，請刪除 $serverDir\.venv 後重新執行安裝器"
+    }
+
+    Invoke-Checked $serverPython @("-m", "pip", "install", "--upgrade", "pip") "更新 Server pip 失敗"
+    Invoke-Checked $serverPython @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "--extra-index-url", $llamaCppCpuWheelIndex, "-r", "requirements.txt") "安裝 Server 相依套件失敗"
+    Invoke-Checked $serverPython @("-c", "import main; import translator; print('Server Python modules OK')") "Server 模組檢查失敗"
+
+    Set-Location $launcherDir
+}
+
 New-Item -ItemType Directory -Force -Path $installRoot, $launcherDir, $serverDir, $extensionDir | Out-Null
 
 Invoke-Robocopy (Join-Path $sourceRoot "launcher") $launcherDir @("/MIR", "/XD", ".venv", "/XF", "launcher.log")
@@ -96,11 +162,12 @@ Set-Location $launcherDir
 
 if (-not (Test-Path ".venv")) {
     Write-Host "建立 Launcher 虛擬環境..."
-    & $pythonExe @pythonArgs -m venv .venv
+    Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "建立 Launcher 虛擬環境失敗"
 }
 
-& .\.venv\Scripts\python.exe -m pip install --upgrade pip
-& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "--upgrade", "pip") "更新 Launcher pip 失敗"
+Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "-r", "requirements.txt") "安裝 Launcher 相依套件失敗"
+Install-ServerEnvironment
 Install-NativeHost
 
 $taskName = "TranslateGemma Launcher"
@@ -116,6 +183,9 @@ New-Item -ItemType Directory -Force -Path $startupDir | Out-Null
 
 schtasks /Delete /TN "$taskName" /F | Out-Null
 schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$backgroundPythonPath\" \"$launcherPath\" $args" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "排程自動啟動建立失敗，將使用啟動資料夾捷徑作為 fallback" -ForegroundColor Yellow
+}
 Set-StartupShortcut -ShortcutPath $startupShortcutPath -TargetPath $backgroundPythonPath -Arguments "`"$launcherPath`" $args" -WorkingDirectory $launcherDir
 
 if (Test-LauncherReady) {
