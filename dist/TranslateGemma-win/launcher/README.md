@@ -11,6 +11,7 @@
 1. 執行 `install_mac.command`
 2. 完成後會自動安裝到 `~/Library/Application Support/TranslateGemma`
 3. 完成後會自動加入開機啟動，並註冊 Chrome Native Host
+4. 若 Chrome 顯示「啟動橋接器未安裝」，請重新執行 `install_mac.command`，再到 `chrome://extensions/` 移除舊版 TranslateGemma 並載入 `~/Library/Application Support/TranslateGemma/extension`
 
 ### Windows
 1. 右鍵 `install_win.ps1` → **使用 PowerShell 執行**

@@ -62,6 +62,48 @@ install_native_host_manifest() {
 JSON
 }
 
+test_native_host_manifest() {
+    local manifest_path="$1"
+    if [ ! -f "$manifest_path" ]; then
+        echo "Native Host manifest 未建立：$manifest_path"
+        exit 1
+    fi
+
+    "$PY_BIN" - "$manifest_path" "$NATIVE_HOST_NAME" "$NATIVE_HOST_SCRIPT" "$EXTENSION_ORIGIN" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+expected_name = sys.argv[2]
+expected_path = sys.argv[3]
+expected_origin = sys.argv[4]
+
+with manifest_path.open("r", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+
+if manifest.get("name") != expected_name:
+    raise SystemExit(f"Native Host manifest name 不一致：{manifest.get('name')}")
+if manifest.get("path") != expected_path or not Path(expected_path).exists():
+    raise SystemExit(f"Native Host manifest path 無效：{manifest.get('path')}")
+if expected_origin not in manifest.get("allowed_origins", []):
+    raise SystemExit(f"Native Host allowed_origins 未包含目前擴充 ID：{expected_origin}")
+PY
+}
+
+install_and_test_native_hosts() {
+    local host_dirs=(
+        "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
+        "$HOME/Library/Application Support/Google/ChromeForTesting/NativeMessagingHosts"
+        "$HOME/Library/Application Support/Chromium/NativeMessagingHosts"
+    )
+
+    for host_dir in "${host_dirs[@]}"; do
+        install_native_host_manifest "$host_dir"
+        test_native_host_manifest "$host_dir/$NATIVE_HOST_NAME.json"
+    done
+}
+
 prepare_server_environment() {
     echo "🔧 建立/更新 Server 虛擬環境（首次安裝可能需要幾分鐘）..."
     cd "$SERVER_DIR"
@@ -133,11 +175,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 chmod +x "$NATIVE_HOST_SCRIPT"
 
+install_and_test_native_hosts
 prepare_server_environment
-
-install_native_host_manifest "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
-install_native_host_manifest "$HOME/Library/Application Support/Google/ChromeForTesting/NativeMessagingHosts"
-install_native_host_manifest "$HOME/Library/Application Support/Chromium/NativeMessagingHosts"
 
 cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -186,5 +225,6 @@ fi
 echo "✅ Launcher 已安裝並設定為開機自動啟動"
 echo "📁 固定安裝位置：$INSTALL_ROOT"
 echo "🧩 Chrome 未封裝擴充請載入：$EXTENSION_DIR"
+echo "若 Chrome 仍顯示啟動橋接器未安裝，請到 chrome://extensions 移除舊版 TranslateGemma 後，重新載入上方 extension 資料夾"
 echo "📝 Launcher 記錄檔：$LAUNCHER_DIR/launcher.log"
 echo "🔌 Native Host：$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/$NATIVE_HOST_NAME.json"

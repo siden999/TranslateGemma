@@ -27,7 +27,8 @@
 2. **雙擊** `install_mac.command`
 3. 等它跑完（會先安裝 Launcher 與 server 環境並啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 4. 之後請從 `~/Library/Application Support/TranslateGemma/extension` 載入 Chrome 未封裝擴充
-5. 如果仍顯示「Launcher 未啟動」，先看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
+5. 如果 Chrome 已經有舊版 TranslateGemma，請先在 `chrome://extensions/` 移除舊版，再載入上方固定位置
+6. 如果仍顯示「Launcher 未啟動」或「啟動橋接器未安裝」，先重新執行 `install_mac.command`，再看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
 
 ### Windows
 1. 進到資料夾裡的 `launcher`
@@ -67,11 +68,12 @@
 - macOS 若一直顯示「Launcher 未啟動」，先查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
 - Windows 若一直顯示「Launcher 未啟動」，先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
-**Q2：Windows 顯示「啟動橋接器未安裝」？**
-- 重新執行 `launcher\install_win.ps1`
+**Q2：顯示「啟動橋接器未安裝」？**
+- macOS 重新執行 `launcher/install_mac.command`
+- Windows 重新執行 `launcher\install_win.ps1`
 - 到 `chrome://extensions/` 移除舊版 TranslateGemma
-- 重新「載入未封裝項目」，選 `%LOCALAPPDATA%\TranslateGemma\extension`
-- 如果仍失敗，查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+- 重新「載入未封裝項目」；macOS 選 `~/Library/Application Support/TranslateGemma/extension`，Windows 選 `%LOCALAPPDATA%\TranslateGemma\extension`
+- 如果仍失敗，查看 Launcher log；macOS 是 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`，Windows 是 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 **Q3：重開機後還要再按啟動嗎？**
 - 需要。Launcher 會自動在背景啟動，但伺服器預設是「關閉」，要你按一次啟動。
