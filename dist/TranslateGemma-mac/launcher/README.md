@@ -10,12 +10,12 @@
 ### macOS
 1. 執行 `install_mac.command`
 2. 內容會安裝到 `~/Library/Application Support/TranslateGemma`
-3. 完成後會自動加入開機啟動
+3. 完成後會自動加入開機啟動，並註冊 Chrome Native Host
 
 ### Windows
 1. 右鍵 `install_win.ps1` → **使用 PowerShell 執行**
 2. 內容會安裝到 `%LOCALAPPDATA%\TranslateGemma`
-3. 完成後會加入登入自啟
+3. 完成後會加入登入自啟，並註冊 Chrome Native Host
 
 ## 啟動
 

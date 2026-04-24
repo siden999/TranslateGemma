@@ -5,6 +5,9 @@ $installRoot = Join-Path $env:LOCALAPPDATA "TranslateGemma"
 $launcherDir = Join-Path $installRoot "launcher"
 $serverDir = Join-Path $installRoot "server"
 $extensionDir = Join-Path $installRoot "extension"
+$nativeHostName = "com.translategemma.launcher"
+$extensionOrigin = "chrome-extension://glkghkdgkpaflgolppmohgggighiphnn/"
+$nativeHostManifestPath = Join-Path $launcherDir "$nativeHostName.json"
 
 function Invoke-Robocopy {
     param(
@@ -60,6 +63,27 @@ function Set-StartupShortcut {
     $shortcut.Save()
 }
 
+function Install-NativeHost {
+    $manifest = @{
+        name = $nativeHostName
+        description = "TranslateGemma Launcher Bridge"
+        path = "native_host.cmd"
+        type = "stdio"
+        allowed_origins = @($extensionOrigin)
+    } | ConvertTo-Json -Depth 4
+
+    Set-Content -Path $nativeHostManifestPath -Value $manifest -Encoding Ascii
+
+    $registryTargets = @(
+        "HKCU\Software\Google\Chrome\NativeMessagingHosts\$nativeHostName",
+        "HKCU\Software\Chromium\NativeMessagingHosts\$nativeHostName"
+    )
+
+    foreach ($registryTarget in $registryTargets) {
+        & reg add $registryTarget /ve /t REG_SZ /d $nativeHostManifestPath /f | Out-Null
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $installRoot, $launcherDir, $serverDir, $extensionDir | Out-Null
 
 Invoke-Robocopy (Join-Path $sourceRoot "launcher") $launcherDir @("/MIR", "/XD", ".venv", "/XF", "launcher.log")
@@ -77,6 +101,7 @@ if (-not (Test-Path ".venv")) {
 
 & .\.venv\Scripts\python.exe -m pip install --upgrade pip
 & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Install-NativeHost
 
 $taskName = "TranslateGemma Launcher"
 $launcherPath = Join-Path $launcherDir "launcher.py"
@@ -119,3 +144,4 @@ Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor G
 Write-Host "固定安裝位置：$installRoot" -ForegroundColor Cyan
 Write-Host "Chrome 未封裝擴充請載入：$extensionDir" -ForegroundColor Cyan
 Write-Host "Launcher 記錄檔：$launcherDir\\launcher.log" -ForegroundColor Cyan
+Write-Host "Native Host：$nativeHostManifestPath" -ForegroundColor Cyan

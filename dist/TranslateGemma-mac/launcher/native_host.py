@@ -19,19 +19,41 @@ POLL_INTERVAL_MS = 500
 LAUNCHER_DIR = Path(__file__).resolve().parent
 ROOT_DIR = LAUNCHER_DIR.parent
 LAUNCHER_SCRIPT = LAUNCHER_DIR / "launcher.py"
-LAUNCHER_PYTHON = LAUNCHER_DIR / ".venv" / "bin" / "python"
 LAUNCHER_LOG = LAUNCHER_DIR / "launcher.log"
-PLIST = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCH_LABEL}.plist"
-LAUNCH_DOMAIN = f"gui/{os.getuid()}"
+
+if os.name == "nt":
+    LAUNCHER_PYTHON = LAUNCHER_DIR / ".venv" / "Scripts" / "python.exe"
+    LAUNCHER_BACKGROUND_PYTHON = LAUNCHER_DIR / ".venv" / "Scripts" / "pythonw.exe"
+    HOST_MANIFEST_PATH = LAUNCHER_DIR / f"{HOST_NAME}.json"
+else:
+    LAUNCHER_PYTHON = LAUNCHER_DIR / ".venv" / "bin" / "python"
+    LAUNCHER_BACKGROUND_PYTHON = LAUNCHER_PYTHON
+    HOST_MANIFEST_PATH = Path.home() / "Library" / "Application Support" / "Google" / "Chrome" / "NativeMessagingHosts" / f"{HOST_NAME}.json"
+    PLIST = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCH_LABEL}.plist"
+    LAUNCH_DOMAIN = f"gui/{os.getuid()}"
 
 
 def log_line(message: str) -> None:
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     try:
+        LAUNCHER_LOG.parent.mkdir(parents=True, exist_ok=True)
         with LAUNCHER_LOG.open("a", encoding="utf-8") as handle:
             handle.write(f"{timestamp} [native-host] {message}\n")
     except Exception:
         pass
+
+
+def configure_binary_stdio() -> None:
+    if os.name != "nt":
+        return
+    try:
+        import msvcrt  # pylint: disable=import-error
+
+        binary_mode = getattr(os, "O_BINARY", 0)
+        msvcrt.setmode(sys.stdin.fileno(), binary_mode)
+        msvcrt.setmode(sys.stdout.fileno(), binary_mode)
+    except Exception as exc:
+        log_line(f"Failed to enable binary stdio: {exc}")
 
 
 def read_message() -> dict | None:
@@ -66,6 +88,8 @@ def check_launcher_status(timeout: float = 1.0) -> bool:
 
 
 def run_launchctl() -> None:
+    if os.name == "nt":
+        return
     if not PLIST.exists():
         log_line(f"LaunchAgent plist not found at {PLIST}")
         return
@@ -89,17 +113,54 @@ def run_launchctl() -> None:
 
 
 def start_launcher_directly() -> None:
-    python_path = LAUNCHER_PYTHON if LAUNCHER_PYTHON.exists() else Path(sys.executable)
+    python_path = LAUNCHER_BACKGROUND_PYTHON if LAUNCHER_BACKGROUND_PYTHON.exists() else LAUNCHER_PYTHON
+    if not python_path.exists():
+        python_path = Path(sys.executable)
+
+    kwargs = {
+        "cwd": str(LAUNCHER_DIR),
+        "stdin": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        creationflags = (
+            getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            | getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        )
+        kwargs["creationflags"] = creationflags
+    else:
+        kwargs["start_new_session"] = True
+
     with LAUNCHER_LOG.open("a", encoding="utf-8") as log_handle:
         subprocess.Popen(
             [str(python_path), str(LAUNCHER_SCRIPT), "--no-tray"],
-            cwd=str(LAUNCHER_DIR),
-            stdin=subprocess.DEVNULL,
             stdout=log_handle,
             stderr=log_handle,
-            start_new_session=True,
+            **kwargs,
         )
     log_line(f"Spawned launcher directly using {python_path}")
+
+
+def wait_for_launcher(timeout_ms: int, status: str) -> dict:
+    deadline = time.time() + (timeout_ms / 1000)
+    while time.time() < deadline:
+        if check_launcher_status():
+            return {
+                "ok": True,
+                "launched": True,
+                "status": status,
+                "log_path": str(LAUNCHER_LOG),
+                "manifest_path": str(HOST_MANIFEST_PATH),
+                "root_dir": str(ROOT_DIR),
+            }
+        time.sleep(POLL_INTERVAL_MS / 1000)
+    return {
+        "ok": False,
+        "error": "Launcher did not become reachable on 127.0.0.1:18181",
+        "log_path": str(LAUNCHER_LOG),
+        "manifest_path": str(HOST_MANIFEST_PATH),
+        "root_dir": str(ROOT_DIR),
+    }
 
 
 def ensure_launcher(timeout_ms: int) -> dict:
@@ -109,38 +170,21 @@ def ensure_launcher(timeout_ms: int) -> dict:
             "launched": False,
             "status": "already_running",
             "log_path": str(LAUNCHER_LOG),
+            "manifest_path": str(HOST_MANIFEST_PATH),
+            "root_dir": str(ROOT_DIR),
         }
 
+    if os.name == "nt":
+        start_launcher_directly()
+        return wait_for_launcher(timeout_ms, "direct_spawn_started")
+
     run_launchctl()
-    deadline = time.time() + (timeout_ms / 1000)
-    while time.time() < deadline:
-        if check_launcher_status():
-            return {
-                "ok": True,
-                "launched": True,
-                "status": "launch_agent_started",
-                "log_path": str(LAUNCHER_LOG),
-            }
-        time.sleep(POLL_INTERVAL_MS / 1000)
+    launchctl_result = wait_for_launcher(timeout_ms, "launch_agent_started")
+    if launchctl_result.get("ok"):
+        return launchctl_result
 
     start_launcher_directly()
-    deadline = time.time() + (timeout_ms / 1000)
-    while time.time() < deadline:
-        if check_launcher_status():
-            return {
-                "ok": True,
-                "launched": True,
-                "status": "direct_spawn_started",
-                "log_path": str(LAUNCHER_LOG),
-            }
-        time.sleep(POLL_INTERVAL_MS / 1000)
-
-    return {
-        "ok": False,
-        "error": "Launcher did not become reachable on 127.0.0.1:18181",
-        "log_path": str(LAUNCHER_LOG),
-        "plist_path": str(PLIST),
-    }
+    return wait_for_launcher(timeout_ms, "direct_spawn_started")
 
 
 def handle_message(message: dict) -> dict:
@@ -155,8 +199,9 @@ def handle_message(message: dict) -> dict:
         return {
             "ok": True,
             "running": check_launcher_status(),
+            "platform": sys.platform,
             "log_path": str(LAUNCHER_LOG),
-            "plist_path": str(PLIST),
+            "manifest_path": str(HOST_MANIFEST_PATH),
             "root_dir": str(ROOT_DIR),
         }
 
@@ -164,10 +209,12 @@ def handle_message(message: dict) -> dict:
         "ok": False,
         "error": f"Unsupported action: {action}",
         "log_path": str(LAUNCHER_LOG),
+        "manifest_path": str(HOST_MANIFEST_PATH),
     }
 
 
 def main() -> None:
+    configure_binary_stdio()
     log_line(f"Native host invoked with argv={sys.argv[1:]}")
     message = read_message()
     if message is None:
@@ -186,5 +233,6 @@ if __name__ == "__main__":
                 "ok": False,
                 "error": str(exc),
                 "log_path": str(LAUNCHER_LOG),
+                "manifest_path": str(HOST_MANIFEST_PATH),
             }
         )

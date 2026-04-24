@@ -203,6 +203,36 @@ function renderRuntimePanel(data) {
     safeSetValue(nThreadsInput, config.n_threads ?? 0);
 }
 
+function renderLauncherFailure(diagnostics = {}) {
+    if (serverStatusText) {
+        serverStatusText.textContent = diagnostics.statusText || 'Launcher 未啟動';
+    }
+    if (serverToggle) {
+        serverToggle.textContent = '啟動';
+        serverToggle.classList.remove('stop');
+        serverToggle.disabled = false;
+        serverToggle.dataset.state = 'stopped';
+    }
+    if (memoryStatusText) {
+        memoryStatusText.textContent = diagnostics.memoryText || '模型未載入';
+    }
+    if (startupNoteText) {
+        startupNoteText.textContent = diagnostics.startupMessage || '首次啟動需下載模型，可能需要幾分鐘。';
+    }
+    if (downloadProgressTrack) {
+        downloadProgressTrack.hidden = true;
+    }
+    if (downloadProgressBar) {
+        downloadProgressBar.style.width = '0%';
+    }
+    if (downloadProgressText) {
+        downloadProgressText.textContent = diagnostics.detailText || '';
+    }
+    renderCacheStats(null);
+    renderRuntimePanel(null);
+    setHeaderStatus('offline', diagnostics.headerText || diagnostics.statusText || 'Launcher 未啟動');
+}
+
 async function checkServerStatus() {
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getServerStatus' });
@@ -302,18 +332,7 @@ async function refreshControlStatus(options = {}) {
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getServerStatus' });
         if (!response?.ok) {
-            serverStatusText.textContent = 'Launcher 未啟動';
-            serverToggle.textContent = '啟動';
-            serverToggle.classList.remove('stop');
-            serverToggle.disabled = false;
-            serverToggle.dataset.state = 'stopped';
-            if (memoryStatusText) {
-                memoryStatusText.textContent = '模型未載入';
-            }
-            renderStartupStatus();
-            renderCacheStats(null);
-            renderRuntimePanel(null);
-            setHeaderStatus('offline', 'Launcher 未啟動');
+            renderLauncherFailure(response?.diagnostics || {});
             nextDelay = CONTROL_REFRESH_SLOW_MS;
             return;
         }
@@ -362,18 +381,12 @@ async function refreshControlStatus(options = {}) {
         }
         serverToggle.disabled = false;
     } catch (error) {
-        serverStatusText.textContent = '狀態取得失敗';
-        serverToggle.textContent = '啟動';
-        serverToggle.classList.remove('stop');
-        serverToggle.disabled = false;
-        serverToggle.dataset.state = 'stopped';
-        if (memoryStatusText) {
-            memoryStatusText.textContent = '模型狀態未知';
-        }
-        renderStartupStatus();
-        renderCacheStats(null);
-        renderRuntimePanel(null);
-        setHeaderStatus('offline', '狀態取得失敗');
+        renderLauncherFailure({
+            statusText: '狀態取得失敗',
+            headerText: '狀態取得失敗',
+            memoryText: '模型狀態未知',
+            detailText: error.message || ''
+        });
         nextDelay = CONTROL_REFRESH_SLOW_MS;
     } finally {
         if (shouldReschedule) {
@@ -412,7 +425,14 @@ async function handleServerToggle() {
     if (isRunning) {
         await chrome.runtime.sendMessage({ action: 'stopServer' });
     } else {
-        await chrome.runtime.sendMessage({ action: 'startServer' });
+        const result = await chrome.runtime.sendMessage({ action: 'startServer' });
+        if (!result?.ok) {
+            renderLauncherFailure(result?.diagnostics || {
+                statusText: '啟動失敗',
+                headerText: '啟動失敗',
+                detailText: result?.error || '未知錯誤'
+            });
+        }
     }
 
     await refreshControlStatus();

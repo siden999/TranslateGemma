@@ -66,6 +66,20 @@ async function loadSettings() {
     }
 }
 
+function renderLauncherFailure(diagnostics = {}) {
+    serverStatusText.textContent = diagnostics.statusText || 'Launcher 未啟動';
+    serverToggle.textContent = '啟動';
+    serverToggle.classList.remove('stop');
+    serverToggle.disabled = false;
+    serverToggle.dataset.state = 'stopped';
+    if (memoryStatusText) {
+        memoryStatusText.textContent = diagnostics.startupMessage || diagnostics.memoryText || '模型未載入';
+    }
+    statusDot.classList.add('offline');
+    statusDot.classList.remove('online');
+    statusText.textContent = diagnostics.headerText || diagnostics.statusText || 'Launcher 未啟動';
+}
+
 /**
  * 儲存設定
  */
@@ -108,14 +122,7 @@ async function refreshControlStatus() {
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getServerStatus' });
         if (!response?.ok) {
-            serverStatusText.textContent = 'Launcher 未啟動';
-            serverToggle.textContent = '啟動';
-            serverToggle.classList.remove('stop');
-            serverToggle.disabled = false;
-            serverToggle.dataset.state = 'stopped';
-            if (memoryStatusText) {
-                memoryStatusText.textContent = '模型未載入';
-            }
+            renderLauncherFailure(response?.diagnostics || {});
             return;
         }
 
@@ -143,14 +150,11 @@ async function refreshControlStatus() {
         }
         serverToggle.disabled = false;
     } catch (error) {
-        serverStatusText.textContent = '狀態取得失敗';
-        serverToggle.textContent = '啟動';
-        serverToggle.classList.remove('stop');
-        serverToggle.disabled = false;
-        serverToggle.dataset.state = 'stopped';
-        if (memoryStatusText) {
-            memoryStatusText.textContent = '模型狀態未知';
-        }
+        renderLauncherFailure({
+            statusText: '狀態取得失敗',
+            headerText: '狀態取得失敗',
+            startupMessage: error.message || '模型狀態未知'
+        });
     }
 }
 
@@ -162,7 +166,14 @@ async function handleServerToggle() {
     if (isRunning) {
         await chrome.runtime.sendMessage({ action: 'stopServer' });
     } else {
-        await chrome.runtime.sendMessage({ action: 'startServer' });
+        const result = await chrome.runtime.sendMessage({ action: 'startServer' });
+        if (!result?.ok) {
+            renderLauncherFailure(result?.diagnostics || {
+                statusText: '啟動失敗',
+                headerText: '啟動失敗',
+                startupMessage: result?.error || '未知錯誤'
+            });
+        }
     }
     await refreshControlStatus();
     await checkServerStatus();

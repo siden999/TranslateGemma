@@ -8,6 +8,7 @@ const CONTROL_BASE_URL = 'http://127.0.0.1:18181';
 const NATIVE_HOST_NAME = 'com.translategemma.launcher';
 const LAUNCHER_BOOT_TIMEOUT_MS = 15000;
 const LAUNCHER_BOOT_POLL_MS = 500;
+let lastLauncherFailure = null;
 
 // 翻譯快取
 const translationCache = new Map();
@@ -28,17 +29,90 @@ async function checkServerHealth() {
     }
 }
 
+function getPlatformInfo() {
+    return new Promise((resolve) => {
+        try {
+            chrome.runtime.getPlatformInfo((info) => {
+                resolve(info || { os: 'unknown' });
+            });
+        } catch (error) {
+            resolve({ os: 'unknown' });
+        }
+    });
+}
+
+async function buildLauncherFailure(errorMessage = '') {
+    const platform = await getPlatformInfo();
+    const isWindows = platform.os === 'win';
+    const installCommand = isWindows ? 'install_win.ps1' : 'install_mac.command';
+    const extensionPath = isWindows
+        ? '%LOCALAPPDATA%\\TranslateGemma\\extension'
+        : '~/Library/Application Support/TranslateGemma/extension';
+    const logPath = isWindows
+        ? '%LOCALAPPDATA%\\TranslateGemma\\launcher\\launcher.log'
+        : '~/Library/Application Support/TranslateGemma/launcher/launcher.log';
+    const normalizedError = String(errorMessage || '');
+    const lowerError = normalizedError.toLowerCase();
+
+    let statusText = 'Launcher 未回應';
+    let startupMessage = `請先重新執行 ${installCommand}，再到 chrome://extensions 重新載入 ${extensionPath}。`;
+
+    if (lowerError.includes('specified native messaging host not found')
+        || lowerError.includes('native host has exited')
+        || lowerError.includes('host not found')) {
+        statusText = '啟動橋接器未安裝';
+        startupMessage = `找不到本機啟動橋接器。請重新執行 ${installCommand}，再重新載入 ${extensionPath}。`;
+    } else if (lowerError.includes('forbidden')) {
+        statusText = '擴充版本與安裝內容不一致';
+        startupMessage = `目前載入的擴充功能不能存取已安裝的 Launcher。請在 chrome://extensions 重新載入 ${extensionPath}。`;
+    } else if (lowerError.includes('did not become reachable')) {
+        statusText = 'Launcher 啟動逾時';
+        startupMessage = `已嘗試喚起 Launcher，但控制服務仍未回應。請查看 ${logPath}。`;
+    } else if (lowerError.includes('failed to fetch')
+        || lowerError.includes('couldn\'t connect')
+        || lowerError.includes('could not establish connection')) {
+        statusText = 'Launcher 未啟動';
+        startupMessage = `按下啟動後仍無法連到本機 Launcher。請先重新執行 ${installCommand}；若仍失敗，查看 ${logPath}。`;
+    }
+
+    return {
+        statusText,
+        startupMessage,
+        detailText: normalizedError ? `詳細錯誤：${normalizedError}` : '',
+        headerText: statusText,
+        memoryText: '模型未載入'
+    };
+}
+
+async function rememberLauncherFailure(errorMessage = '') {
+    lastLauncherFailure = await buildLauncherFailure(errorMessage);
+    return lastLauncherFailure;
+}
+
+function clearLauncherFailure() {
+    lastLauncherFailure = null;
+}
+
 /**
  * 檢查 Launcher / 控制服務狀態
  */
 async function getControlStatus() {
     try {
         const response = await fetch(`${CONTROL_BASE_URL}/status`);
+        if (!response.ok) {
+            const error = `Control API 錯誤: ${response.status}`;
+            return { ok: false, error, diagnostics: await rememberLauncherFailure(error) };
+        }
         const data = await response.json();
+        clearLauncherFailure();
         return { ok: true, data };
     } catch (error) {
         console.error('控制服務狀態取得失敗:', error);
-        return { ok: false, error: error.message };
+        return {
+            ok: false,
+            error: error.message,
+            diagnostics: lastLauncherFailure || await rememberLauncherFailure(error.message)
+        };
     }
 }
 
@@ -65,6 +139,7 @@ function sendNativeHostMessage(message) {
 async function ensureLauncherAvailable(timeoutMs = LAUNCHER_BOOT_TIMEOUT_MS) {
     const existingStatus = await getControlStatus();
     if (existingStatus?.ok) {
+        clearLauncherFailure();
         return { ok: true, data: existingStatus.data, launched: false };
     }
 
@@ -73,42 +148,63 @@ async function ensureLauncherAvailable(timeoutMs = LAUNCHER_BOOT_TIMEOUT_MS) {
         timeout_ms: timeoutMs
     });
     if (!bridgeResult?.ok) {
-        return { ok: false, error: bridgeResult?.error || 'Failed to start Launcher via native host' };
+        const error = bridgeResult?.error || 'Failed to start Launcher via native host';
+        return { ok: false, error, diagnostics: await rememberLauncherFailure(error) };
     }
 
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
         const status = await getControlStatus();
         if (status?.ok) {
+            clearLauncherFailure();
             return { ok: true, data: status.data, launched: true };
         }
         await wait(LAUNCHER_BOOT_POLL_MS);
     }
 
-    return { ok: false, error: 'Launcher did not become reachable in time' };
+    return {
+        ok: false,
+        error: 'Launcher did not become reachable in time',
+        diagnostics: await rememberLauncherFailure('Launcher did not become reachable in time')
+    };
 }
 
 async function postStartServer() {
     const response = await fetch(`${CONTROL_BASE_URL}/start`, { method: 'POST' });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data?.error || `Control API 錯誤: ${response.status}`);
+    }
     return { ok: true, data };
 }
 
 async function startServer() {
     try {
-        return await postStartServer();
+        const result = await postStartServer();
+        clearLauncherFailure();
+        return result;
     } catch (error) {
         console.error('啟動伺服器失敗，嘗試喚起 Launcher:', error);
         const launcherResult = await ensureLauncherAvailable();
         if (!launcherResult?.ok) {
-            return { ok: false, error: launcherResult?.error || error.message };
+            return {
+                ok: false,
+                error: launcherResult?.error || error.message,
+                diagnostics: launcherResult?.diagnostics || lastLauncherFailure
+            };
         }
 
         try {
-            return await postStartServer();
+            const result = await postStartServer();
+            clearLauncherFailure();
+            return result;
         } catch (retryError) {
             console.error('Launcher 喚起後仍無法啟動伺服器:', retryError);
-            return { ok: false, error: retryError.message };
+            return {
+                ok: false,
+                error: retryError.message,
+                diagnostics: await rememberLauncherFailure(retryError.message)
+            };
         }
     }
 }
