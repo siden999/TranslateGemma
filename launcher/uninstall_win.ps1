@@ -27,14 +27,19 @@ try {
     # ignore
 }
 
-foreach ($registryTarget in @(
-    "HKCU\Software\Google\Chrome\NativeMessagingHosts\$nativeHostName",
-    "HKCU\Software\Chromium\NativeMessagingHosts\$nativeHostName"
+foreach ($registrySubKey in @(
+    "Software\Google\Chrome\NativeMessagingHosts\$nativeHostName",
+    "Software\Chromium\NativeMessagingHosts\$nativeHostName",
+    "Software\Microsoft\Edge\NativeMessagingHosts\$nativeHostName"
 )) {
-    try {
-        & reg delete $registryTarget /f | Out-Null
-    } catch {
-        # ignore
+    foreach ($registryView in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+        try {
+            $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $registryView)
+            $baseKey.DeleteSubKeyTree($registrySubKey, $false)
+            $baseKey.Close()
+        } catch {
+            # ignore
+        }
     }
 }
 

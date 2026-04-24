@@ -8,6 +8,12 @@ $extensionDir = Join-Path $installRoot "extension"
 $nativeHostName = "com.translategemma.launcher"
 $extensionOrigin = "chrome-extension://glkghkdgkpaflgolppmohgggighiphnn/"
 $nativeHostManifestPath = Join-Path $launcherDir "$nativeHostName.json"
+$nativeHostLauncherPath = Join-Path $launcherDir "native_host.cmd"
+$nativeHostRegistrySubKeys = @(
+    "Software\Google\Chrome\NativeMessagingHosts\$nativeHostName",
+    "Software\Chromium\NativeMessagingHosts\$nativeHostName",
+    "Software\Microsoft\Edge\NativeMessagingHosts\$nativeHostName"
+)
 $minPythonMajor = 3
 $minPythonMinor = 10
 $maxPythonMajor = 3
@@ -110,23 +116,72 @@ function Set-StartupShortcut {
 }
 
 function Install-NativeHost {
-    $manifest = @{
+    if (-not (Test-Path $nativeHostLauncherPath)) {
+        throw "找不到 Native Host 啟動檔：$nativeHostLauncherPath"
+    }
+
+    $manifest = [ordered]@{
         name = $nativeHostName
         description = "TranslateGemma Launcher Bridge"
-        path = "native_host.cmd"
+        path = $nativeHostLauncherPath
         type = "stdio"
         allowed_origins = @($extensionOrigin)
     } | ConvertTo-Json -Depth 4
 
-    Set-Content -Path $nativeHostManifestPath -Value $manifest -Encoding Ascii
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($nativeHostManifestPath, $manifest, $utf8NoBom)
 
-    $registryTargets = @(
-        "HKCU\Software\Google\Chrome\NativeMessagingHosts\$nativeHostName",
-        "HKCU\Software\Chromium\NativeMessagingHosts\$nativeHostName"
-    )
+    foreach ($registrySubKey in $nativeHostRegistrySubKeys) {
+        foreach ($registryView in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+            try {
+                $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $registryView)
+                $key = $baseKey.CreateSubKey($registrySubKey)
+                $key.SetValue("", $nativeHostManifestPath, [Microsoft.Win32.RegistryValueKind]::String)
+                $key.Close()
+                $baseKey.Close()
+            } catch {
+                Write-Host "無法寫入 $registryView $registrySubKey：$($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+    }
+}
 
-    foreach ($registryTarget in $registryTargets) {
-        & reg add $registryTarget /ve /t REG_SZ /d $nativeHostManifestPath /f | Out-Null
+function Test-NativeHostRegistration {
+    if (-not (Test-Path $nativeHostManifestPath)) {
+        throw "Native Host manifest 未建立：$nativeHostManifestPath"
+    }
+
+    $manifest = Get-Content -Raw -Path $nativeHostManifestPath | ConvertFrom-Json
+    if ($manifest.name -ne $nativeHostName) {
+        throw "Native Host manifest name 不一致：$($manifest.name)"
+    }
+    if ($manifest.path -ne $nativeHostLauncherPath -or -not (Test-Path $manifest.path)) {
+        throw "Native Host manifest path 無效：$($manifest.path)"
+    }
+    if ($manifest.allowed_origins -notcontains $extensionOrigin) {
+        throw "Native Host allowed_origins 未包含目前擴充 ID：$extensionOrigin"
+    }
+
+    foreach ($registrySubKey in $nativeHostRegistrySubKeys) {
+        $foundRegistration = $false
+        foreach ($registryView in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+            try {
+                $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $registryView)
+                $key = $baseKey.OpenSubKey($registrySubKey)
+                $value = if ($key) { [string]$key.GetValue("") } else { "" }
+                if ($value -eq $nativeHostManifestPath) {
+                    $foundRegistration = $true
+                }
+                if ($key) { $key.Close() }
+                $baseKey.Close()
+            } catch {
+                # ignore and let the final check report failure
+            }
+        }
+
+        if (-not $foundRegistration) {
+            throw "Native Host registry 未指向 $nativeHostManifestPath：$registrySubKey"
+        }
     }
 }
 
@@ -167,8 +222,9 @@ if (-not (Test-Path ".venv")) {
 
 Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "--upgrade", "pip") "更新 Launcher pip 失敗"
 Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "-r", "requirements.txt") "安裝 Launcher 相依套件失敗"
-Install-ServerEnvironment
 Install-NativeHost
+Test-NativeHostRegistration
+Install-ServerEnvironment
 
 $taskName = "TranslateGemma Launcher"
 $launcherPath = Join-Path $launcherDir "launcher.py"
@@ -213,5 +269,6 @@ if (Test-LauncherReady) {
 Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor Green
 Write-Host "固定安裝位置：$installRoot" -ForegroundColor Cyan
 Write-Host "Chrome 未封裝擴充請載入：$extensionDir" -ForegroundColor Cyan
+Write-Host "若 Chrome 仍顯示啟動橋接器未安裝，請到 chrome://extensions 移除舊版 TranslateGemma 後，重新載入上方 extension 資料夾" -ForegroundColor Cyan
 Write-Host "Launcher 記錄檔：$launcherDir\\launcher.log" -ForegroundColor Cyan
 Write-Host "Native Host：$nativeHostManifestPath" -ForegroundColor Cyan

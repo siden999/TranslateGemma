@@ -35,7 +35,8 @@
 3. 如果跳出警告，按「允許」
 4. 等它跑完（安裝器會先安裝 Launcher 與 server 環境並啟動 Launcher；模型會在你第一次於 Chrome 擴充按「啟動」時下載）
 5. 之後請從 `%LOCALAPPDATA%\TranslateGemma\extension` 載入 Chrome 未封裝擴充
-6. 如果仍顯示「Launcher 未啟動」，先看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+6. 如果 Chrome 已經有舊版 TranslateGemma，請先在 `chrome://extensions/` 移除舊版，再載入上方固定位置
+7. 如果仍顯示「Launcher 未啟動」或「啟動橋接器未安裝」，先重新執行 `install_win.ps1`，再看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 ---
 
@@ -45,7 +46,7 @@
 3. 右上角打開「開發者模式」
 4. 按「載入未封裝項目」
 5. 選擇固定安裝位置裡的 `extension` 資料夾
-6. 如果你是從舊版升級，請按一次「重新載入」
+6. 如果你是從舊版升級，建議先移除舊版 TranslateGemma，再載入固定安裝位置的 `extension` 資料夾
 
 完成後，右上角會出現 TranslateGemma 圖示。
 
@@ -66,10 +67,16 @@
 - macOS 若一直顯示「Launcher 未啟動」，先查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`
 - Windows 若一直顯示「Launcher 未啟動」，先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
-**Q2：重開機後還要再按啟動嗎？**
+**Q2：Windows 顯示「啟動橋接器未安裝」？**
+- 重新執行 `launcher\install_win.ps1`
+- 到 `chrome://extensions/` 移除舊版 TranslateGemma
+- 重新「載入未封裝項目」，選 `%LOCALAPPDATA%\TranslateGemma\extension`
+- 如果仍失敗，查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+
+**Q3：重開機後還要再按啟動嗎？**
 - 需要。Launcher 會自動在背景啟動，但伺服器預設是「關閉」，要你按一次啟動。
 
-**Q3：看不到翻譯？**
+**Q4：看不到翻譯？**
 - 重新整理 YouTube 頁面再試一次
 
 ---

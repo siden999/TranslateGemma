@@ -62,7 +62,7 @@
 > macOS 與 Windows 安裝器都會註冊 Native Host，因此擴充功能按下「啟動」時，若 Launcher 尚未運作，會先嘗試自動喚起本機 Launcher，再開始下載模型與啟動伺服器。
 > 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
 > 若 macOS 上仍顯示「Launcher 未啟動」，請先查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`。
-> 若 Windows 上仍顯示「Launcher 未啟動」，請先查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`。
+> 若 Windows 上仍顯示「Launcher 未啟動」或「啟動橋接器未安裝」，請重新執行 `launcher\install_win.ps1`，再到 `chrome://extensions/` 移除舊版 TranslateGemma 並重新載入 `%LOCALAPPDATA%\TranslateGemma\extension`。若仍失敗，查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`。
 
 **一鍵移除**
 
@@ -151,7 +151,7 @@
 2. 開啟右上角的「**開發者模式 (Developer mode)**」。
 3. 點擊左上角的「**載入未封裝項目 (Load unpacked)**」。
 4. macOS 請選 `~/Library/Application Support/TranslateGemma/extension`；Windows 請選 `%LOCALAPPDATA%\TranslateGemma\extension`。
-5. 若你是從舊版升級，請在 `chrome://extensions/` 按一次重新載入。
+5. 若你是從舊版升級，建議先移除舊版 TranslateGemma，再載入固定安裝位置的 `extension` 資料夾。
 6. 完成！現在前往 YouTube 即可體驗。
 
 ---

@@ -64,16 +64,16 @@ async function buildLauncherFailure(errorMessage = '') {
     const lowerError = normalizedError.toLowerCase();
 
     let statusText = 'Launcher 未回應';
-    let startupMessage = `請先重新執行 ${installCommand}，再到 chrome://extensions 重新載入 ${extensionPath}。`;
+    let startupMessage = `請先重新執行 ${installCommand}，再到 chrome://extensions 移除舊版 TranslateGemma 後載入 ${extensionPath}。`;
 
     if (lowerError.includes('specified native messaging host not found')
         || lowerError.includes('native host has exited')
         || lowerError.includes('host not found')) {
         statusText = '啟動橋接器未安裝';
-        startupMessage = `找不到本機啟動橋接器。請重新執行 ${installCommand}，再重新載入 ${extensionPath}。`;
+        startupMessage = `找不到本機啟動橋接器。請重新執行 ${installCommand}，再到 chrome://extensions 移除舊版 TranslateGemma 後載入 ${extensionPath}。`;
     } else if (lowerError.includes('forbidden')) {
         statusText = '擴充版本與安裝內容不一致';
-        startupMessage = `目前載入的擴充功能不能存取已安裝的 Launcher。請在 chrome://extensions 重新載入 ${extensionPath}。`;
+        startupMessage = `目前載入的擴充功能不能存取已安裝的 Launcher。請在 chrome://extensions 移除舊版 TranslateGemma 後載入 ${extensionPath}。`;
     } else if (lowerError.includes('did not become reachable')) {
         statusText = 'Launcher 啟動逾時';
         startupMessage = `已嘗試喚起 Launcher，但控制服務仍未回應。請查看 ${logPath}。`;
