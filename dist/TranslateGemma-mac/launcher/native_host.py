@@ -23,7 +23,7 @@ LAUNCHER_LOG = LAUNCHER_DIR / "launcher.log"
 
 if os.name == "nt":
     LAUNCHER_PYTHON = LAUNCHER_DIR / ".venv" / "Scripts" / "python.exe"
-    LAUNCHER_BACKGROUND_PYTHON = LAUNCHER_DIR / ".venv" / "Scripts" / "pythonw.exe"
+    LAUNCHER_BACKGROUND_PYTHON = LAUNCHER_PYTHON
     HOST_MANIFEST_PATH = LAUNCHER_DIR / f"{HOST_NAME}.json"
 else:
     LAUNCHER_PYTHON = LAUNCHER_DIR / ".venv" / "bin" / "python"
@@ -41,6 +41,16 @@ def log_line(message: str) -> None:
             handle.write(f"{timestamp} [native-host] {message}\n")
     except Exception:
         pass
+
+
+def tail_log(max_lines: int = 30) -> str:
+    try:
+        if not LAUNCHER_LOG.exists():
+            return ""
+        lines = LAUNCHER_LOG.read_text(encoding="utf-8", errors="ignore").splitlines()
+        return "\n".join(lines[-max_lines:])
+    except Exception:
+        return ""
 
 
 def configure_binary_stdio() -> None:
@@ -124,7 +134,6 @@ def start_launcher_directly() -> None:
     if os.name == "nt":
         creationflags = (
             getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            | getattr(subprocess, "DETACHED_PROCESS", 0)
             | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
         )
         kwargs["creationflags"] = creationflags
@@ -136,6 +145,7 @@ def start_launcher_directly() -> None:
             [str(python_path), str(LAUNCHER_SCRIPT), "--no-tray"],
             stdout=log_handle,
             stderr=log_handle,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
             **kwargs,
         )
     log_line(f"Spawned launcher directly using {python_path}")
@@ -158,6 +168,7 @@ def wait_for_launcher(timeout_ms: int, status: str) -> dict:
         "ok": False,
         "error": "Launcher did not become reachable on 127.0.0.1:18181",
         "log_path": str(LAUNCHER_LOG),
+        "launcher_log_tail": tail_log(),
         "manifest_path": str(HOST_MANIFEST_PATH),
         "root_dir": str(ROOT_DIR),
     }
@@ -201,6 +212,7 @@ def handle_message(message: dict) -> dict:
             "running": check_launcher_status(),
             "platform": sys.platform,
             "log_path": str(LAUNCHER_LOG),
+            "launcher_log_tail": tail_log(),
             "manifest_path": str(HOST_MANIFEST_PATH),
             "root_dir": str(ROOT_DIR),
         }
@@ -233,6 +245,7 @@ if __name__ == "__main__":
                 "ok": False,
                 "error": str(exc),
                 "log_path": str(LAUNCHER_LOG),
+                "launcher_log_tail": tail_log(),
                 "manifest_path": str(HOST_MANIFEST_PATH),
             }
         )

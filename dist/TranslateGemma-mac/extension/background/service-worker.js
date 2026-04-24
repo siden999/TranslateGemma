@@ -33,7 +33,7 @@ async function checkServerHealth() {
         const data = await response.json();
         return data.status === 'ok' && data.model_loaded;
     } catch (error) {
-        console.error('伺服器健康檢查失敗:', error);
+        console.debug('伺服器健康檢查未連線:', error);
         return false;
     }
 }
@@ -50,7 +50,33 @@ function getPlatformInfo() {
     });
 }
 
-async function buildLauncherFailure(errorMessage = '') {
+function buildDiagnosticDetail(errorMessage = '', context = {}) {
+    const lines = [];
+    const normalizedError = String(errorMessage || '');
+
+    if (normalizedError) {
+        lines.push(`詳細錯誤：${normalizedError}`);
+    }
+    if (context.previous_error && context.previous_error !== normalizedError) {
+        lines.push(`前一次控制服務錯誤：${context.previous_error}`);
+    }
+    if (context.status) {
+        lines.push(`橋接器狀態：${context.status}`);
+    }
+    if (context.log_path) {
+        lines.push(`Launcher log：${context.log_path}`);
+    }
+    if (context.manifest_path) {
+        lines.push(`Native Host manifest：${context.manifest_path}`);
+    }
+    if (context.launcher_log_tail) {
+        lines.push(`Launcher 最近記錄：\n${context.launcher_log_tail}`);
+    }
+
+    return lines.join('\n');
+}
+
+async function buildLauncherFailure(errorMessage = '', context = {}) {
     const platform = await getPlatformInfo();
     const isWindows = platform.os === 'win';
     const installCommand = isWindows ? 'install_win.ps1' : 'install_mac.command';
@@ -74,6 +100,12 @@ async function buildLauncherFailure(errorMessage = '') {
     } else if (lowerError.includes('forbidden')) {
         statusText = '擴充版本與安裝內容不一致';
         startupMessage = `目前載入的擴充功能不能存取已安裝的 Launcher。請在 chrome://extensions 移除舊版 TranslateGemma 後載入 ${extensionPath}。`;
+    } else if (lowerError.includes('returned no response')) {
+        statusText = '啟動橋接器無回應';
+        startupMessage = `本機啟動橋接器沒有回傳結果。請重新執行 ${installCommand}，再到 chrome://extensions 移除舊版 TranslateGemma 後載入 ${extensionPath}。`;
+    } else if (lowerError.includes('failed to start native messaging host')) {
+        statusText = '啟動橋接器無法執行';
+        startupMessage = `Chrome 找到橋接器但無法執行。請重新執行 ${installCommand}；若仍失敗，查看 ${logPath}。`;
     } else if (lowerError.includes('did not become reachable')) {
         statusText = 'Launcher 啟動逾時';
         startupMessage = `已嘗試喚起 Launcher，但控制服務仍未回應。請查看 ${logPath}。`;
@@ -87,7 +119,7 @@ async function buildLauncherFailure(errorMessage = '') {
     return {
         statusText,
         startupMessage,
-        detailText: normalizedError ? `詳細錯誤：${normalizedError}` : '',
+        detailText: buildDiagnosticDetail(normalizedError, context),
         headerText: statusText,
         memoryText: '模型未載入',
         platform: platform.os,
@@ -96,8 +128,8 @@ async function buildLauncherFailure(errorMessage = '') {
     };
 }
 
-async function rememberLauncherFailure(errorMessage = '') {
-    lastLauncherFailure = await buildLauncherFailure(errorMessage);
+async function rememberLauncherFailure(errorMessage = '', context = {}) {
+    lastLauncherFailure = await buildLauncherFailure(errorMessage, context);
     return lastLauncherFailure;
 }
 
@@ -117,7 +149,7 @@ async function getControlStatus() {
         clearLauncherFailure();
         return { ok: true, data };
     } catch (error) {
-        console.error('控制服務狀態取得失敗:', error);
+        console.warn('控制服務狀態取得失敗:', error);
         return {
             ok: false,
             error: error.message,
@@ -159,7 +191,10 @@ async function ensureLauncherAvailable(timeoutMs = LAUNCHER_BOOT_TIMEOUT_MS) {
     });
     if (!bridgeResult?.ok) {
         const error = bridgeResult?.error || existingStatus?.error || 'Failed to start Launcher via native host';
-        const diagnostics = await rememberLauncherFailure(error);
+        const diagnostics = await rememberLauncherFailure(error, {
+            ...bridgeResult,
+            previous_error: existingStatus?.error
+        });
         return {
             ok: false,
             error,
@@ -177,7 +212,13 @@ async function ensureLauncherAvailable(timeoutMs = LAUNCHER_BOOT_TIMEOUT_MS) {
         await wait(LAUNCHER_BOOT_POLL_MS);
     }
 
-    const diagnostics = await rememberLauncherFailure(bridgeResult?.error || 'Launcher did not become reachable in time');
+    const diagnostics = await rememberLauncherFailure(
+        bridgeResult?.error || 'Launcher did not become reachable in time',
+        {
+            ...bridgeResult,
+            previous_error: existingStatus?.error
+        }
+    );
     return {
         ok: false,
         error: bridgeResult?.error || 'Launcher did not become reachable in time',

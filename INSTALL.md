@@ -75,10 +75,15 @@
 - 重新「載入未封裝項目」；macOS 選 `~/Library/Application Support/TranslateGemma/extension`，Windows 選 `%LOCALAPPDATA%\TranslateGemma\extension`
 - 如果仍失敗，查看 Launcher log；macOS 是 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`，Windows 是 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
-**Q3：重開機後還要再按啟動嗎？**
+**Q3：Windows 顯示 `TypeError: Failed to fetch`？**
+- 這代表 Chrome 連不到 `127.0.0.1:18181` 的 Launcher 控制服務
+- 重新執行 `launcher\install_win.ps1`，確認最後有顯示「Launcher 已啟動」
+- 如果仍失敗，查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
+
+**Q4：重開機後還要再按啟動嗎？**
 - 需要。Launcher 會自動在背景啟動，但伺服器預設是「關閉」，要你按一次啟動。
 
-**Q4：看不到翻譯？**
+**Q5：看不到翻譯？**
 - 重新整理 YouTube 頁面再試一次
 
 ---

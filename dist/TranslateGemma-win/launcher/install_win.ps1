@@ -98,6 +98,59 @@ function Test-LauncherReady {
     }
 }
 
+function Wait-LauncherReady {
+    param(
+        [int]$TimeoutSeconds = 30
+    )
+
+    for ($i = 0; $i -lt ($TimeoutSeconds * 2); $i++) {
+        if (Test-LauncherReady) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
+function Start-LauncherProcess {
+    param(
+        [string]$PythonPath,
+        [string]$LauncherPath
+    )
+
+    if (-not (Test-Path $PythonPath)) {
+        throw "找不到 Launcher Python：$PythonPath"
+    }
+    if (-not (Test-Path $LauncherPath)) {
+        throw "找不到 Launcher 腳本：$LauncherPath"
+    }
+
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $PythonPath
+    $startInfo.Arguments = "`"$LauncherPath`" --no-tray"
+    $startInfo.WorkingDirectory = $launcherDir
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.EnvironmentVariables["PYTHONUNBUFFERED"] = "1"
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "Launcher 背景服務啟動失敗"
+    }
+    return $process.Id
+}
+
+function Show-LauncherLogTail {
+    $launcherLogPath = Join-Path $launcherDir "launcher.log"
+    if (Test-Path $launcherLogPath) {
+        Write-Host "Launcher 最近記錄：" -ForegroundColor Yellow
+        Get-Content -Path $launcherLogPath -Tail 40
+    } else {
+        Write-Host "尚未建立 Launcher 記錄檔：$launcherLogPath" -ForegroundColor Yellow
+    }
+}
+
 function Set-StartupShortcut {
     param(
         [string]$ShortcutPath,
@@ -229,8 +282,7 @@ Install-ServerEnvironment
 $taskName = "TranslateGemma Launcher"
 $launcherPath = Join-Path $launcherDir "launcher.py"
 $pythonPath = Join-Path $launcherDir ".venv\Scripts\python.exe"
-$pythonwPath = Join-Path $launcherDir ".venv\Scripts\pythonw.exe"
-$backgroundPythonPath = if (Test-Path $pythonwPath) { $pythonwPath } else { $pythonPath }
+$backgroundPythonPath = $pythonPath
 $args = "--no-tray"
 $startupDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
 $startupShortcutPath = Join-Path $startupDir "TranslateGemma Launcher.lnk"
@@ -238,7 +290,7 @@ $startupShortcutPath = Join-Path $startupDir "TranslateGemma Launcher.lnk"
 New-Item -ItemType Directory -Force -Path $startupDir | Out-Null
 
 schtasks /Delete /TN "$taskName" /F | Out-Null
-schtasks /Create /SC ONLOGON /RL HIGHEST /TN "$taskName" /TR "\"$backgroundPythonPath\" \"$launcherPath\" $args" | Out-Null
+schtasks /Create /F /SC ONLOGON /RL LIMITED /TN "$taskName" /TR "\"$backgroundPythonPath\" \"$launcherPath\" $args" | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "排程自動啟動建立失敗，將使用啟動資料夾捷徑作為 fallback" -ForegroundColor Yellow
 }
@@ -248,21 +300,16 @@ if (Test-LauncherReady) {
     Write-Host "Launcher 已在背景執行" -ForegroundColor Green
 } else {
     Write-Host "正在啟動 Launcher 背景服務..."
-    Start-Process -FilePath $backgroundPythonPath -ArgumentList @($launcherPath, "--no-tray") -WorkingDirectory $launcherDir -WindowStyle Hidden | Out-Null
+    $launcherPid = Start-LauncherProcess -PythonPath $backgroundPythonPath -LauncherPath $launcherPath
+    Write-Host "Launcher 背景服務已送出啟動，PID：$launcherPid" -ForegroundColor Cyan
 
-    $launcherReady = $false
-    for ($i = 0; $i -lt 10; $i++) {
-        Start-Sleep -Milliseconds 500
-        if (Test-LauncherReady) {
-            $launcherReady = $true
-            break
-        }
-    }
+    $launcherReady = Wait-LauncherReady -TimeoutSeconds 30
 
     if ($launcherReady) {
         Write-Host "Launcher 已啟動，可直接回 Chrome 按「啟動」下載模型" -ForegroundColor Green
     } else {
         Write-Host "Launcher 已安裝，但目前尚未回應；請重新登入 Windows，或檢查 $launcherDir\\launcher.log" -ForegroundColor Yellow
+        Show-LauncherLogTail
     }
 }
 

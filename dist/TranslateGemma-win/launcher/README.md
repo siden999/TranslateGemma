@@ -18,6 +18,7 @@
 2. 完成後會自動安裝到 `%LOCALAPPDATA%\TranslateGemma`
 3. 完成後會加入登入自啟，並註冊 Chrome Native Host
 4. 若 Chrome 顯示「啟動橋接器未安裝」，請重新執行 `install_win.ps1`，再到 `chrome://extensions/` 移除舊版 TranslateGemma 並載入 `%LOCALAPPDATA%\TranslateGemma\extension`
+5. 若 Chrome 顯示 `TypeError: Failed to fetch`，代表 Launcher 控制服務未在 `127.0.0.1:18181` 回應；請查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`
 
 ## 啟動
 
