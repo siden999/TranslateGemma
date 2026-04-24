@@ -85,7 +85,7 @@ foreach ($candidate in @(
 }
 
 if (-not $pythonExe) {
-    Write-Host "找不到 Python $minPythonMajor.$minPythonMinor-$maxPythonMajor.$maxPythonMinor，請先安裝 Python 3.12 後再執行" -ForegroundColor Red
+    Write-Host "Python $minPythonMajor.$minPythonMinor-$maxPythonMajor.$maxPythonMinor was not found. Install Python 3.12, then run setup again." -ForegroundColor Red
     exit 1
 }
 
@@ -119,10 +119,10 @@ function Start-LauncherProcess {
     )
 
     if (-not (Test-Path $PythonPath)) {
-        throw "找不到 Launcher Python：$PythonPath"
+        throw "Launcher Python was not found: $PythonPath"
     }
     if (-not (Test-Path $LauncherPath)) {
-        throw "找不到 Launcher 腳本：$LauncherPath"
+        throw "Launcher script was not found: $LauncherPath"
     }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -136,7 +136,7 @@ function Start-LauncherProcess {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
     if (-not $process.Start()) {
-        throw "Launcher 背景服務啟動失敗"
+        throw "Failed to start Launcher background service"
     }
     return $process.Id
 }
@@ -144,10 +144,10 @@ function Start-LauncherProcess {
 function Show-LauncherLogTail {
     $launcherLogPath = Join-Path $launcherDir "launcher.log"
     if (Test-Path $launcherLogPath) {
-        Write-Host "Launcher 最近記錄：" -ForegroundColor Yellow
+        Write-Host "Recent Launcher log:" -ForegroundColor Yellow
         Get-Content -Path $launcherLogPath -Tail 40
     } else {
-        Write-Host "尚未建立 Launcher 記錄檔：$launcherLogPath" -ForegroundColor Yellow
+        Write-Host "Launcher log has not been created yet: $launcherLogPath" -ForegroundColor Yellow
     }
 }
 
@@ -170,7 +170,7 @@ function Set-StartupShortcut {
 
 function Install-NativeHost {
     if (-not (Test-Path $nativeHostLauncherPath)) {
-        throw "找不到 Native Host 啟動檔：$nativeHostLauncherPath"
+        throw "Native Host launcher was not found: $nativeHostLauncherPath"
     }
 
     $manifest = [ordered]@{
@@ -193,7 +193,7 @@ function Install-NativeHost {
                 $key.Close()
                 $baseKey.Close()
             } catch {
-                Write-Host "無法寫入 $registryView $registrySubKey：$($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host ("Unable to write {0} {1}: {2}" -f $registryView, $registrySubKey, $_.Exception.Message) -ForegroundColor Yellow
             }
         }
     }
@@ -201,18 +201,18 @@ function Install-NativeHost {
 
 function Test-NativeHostRegistration {
     if (-not (Test-Path $nativeHostManifestPath)) {
-        throw "Native Host manifest 未建立：$nativeHostManifestPath"
+        throw "Native Host manifest was not created: $nativeHostManifestPath"
     }
 
     $manifest = Get-Content -Raw -Path $nativeHostManifestPath | ConvertFrom-Json
     if ($manifest.name -ne $nativeHostName) {
-        throw "Native Host manifest name 不一致：$($manifest.name)"
+        throw "Native Host manifest name does not match: $($manifest.name)"
     }
     if ($manifest.path -ne $nativeHostLauncherPath -or -not (Test-Path $manifest.path)) {
-        throw "Native Host manifest path 無效：$($manifest.path)"
+        throw "Native Host manifest path is invalid: $($manifest.path)"
     }
     if ($manifest.allowed_origins -notcontains $extensionOrigin) {
-        throw "Native Host allowed_origins 未包含目前擴充 ID：$extensionOrigin"
+        throw "Native Host allowed_origins does not include the current extension ID: $extensionOrigin"
     }
 
     foreach ($registrySubKey in $nativeHostRegistrySubKeys) {
@@ -233,27 +233,27 @@ function Test-NativeHostRegistration {
         }
 
         if (-not $foundRegistration) {
-            throw "Native Host registry 未指向 $nativeHostManifestPath：$registrySubKey"
+            throw ("Native Host registry does not point to {0}: {1}" -f $nativeHostManifestPath, $registrySubKey)
         }
     }
 }
 
 function Install-ServerEnvironment {
-    Write-Host "建立/更新 Server 虛擬環境（首次安裝可能需要幾分鐘）..."
+    Write-Host "Creating/updating Server virtual environment. First install may take several minutes..."
     Set-Location $serverDir
 
     if (-not (Test-Path ".venv")) {
-        Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "建立 Server 虛擬環境失敗"
+        Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "Failed to create Server virtual environment"
     }
 
     $serverPython = Join-Path $serverDir ".venv\Scripts\python.exe"
     if (-not (Test-PythonSupported -Exe $serverPython)) {
-        throw "Server 虛擬環境的 Python 版本過舊，請刪除 $serverDir\.venv 後重新執行安裝器"
+        throw "Server virtual environment Python is too old. Delete $serverDir\.venv, then run setup again."
     }
 
-    Invoke-Checked $serverPython @("-m", "pip", "install", "--upgrade", "pip") "更新 Server pip 失敗"
-    Invoke-Checked $serverPython @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "--extra-index-url", $llamaCppCpuWheelIndex, "-r", "requirements.txt") "安裝 Server 相依套件失敗"
-    Invoke-Checked $serverPython @("-c", "import main; import translator; print('Server Python modules OK')") "Server 模組檢查失敗"
+    Invoke-Checked $serverPython @("-m", "pip", "install", "--upgrade", "pip") "Failed to upgrade Server pip"
+    Invoke-Checked $serverPython @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "--extra-index-url", $llamaCppCpuWheelIndex, "-r", "requirements.txt") "Failed to install Server dependencies"
+    Invoke-Checked $serverPython @("-c", "import main; import translator; print('Server Python modules OK')") "Server module check failed"
 
     Set-Location $launcherDir
 }
@@ -269,12 +269,12 @@ New-Item -ItemType Directory -Force -Path (Join-Path $serverDir "logs"), (Join-P
 Set-Location $launcherDir
 
 if (-not (Test-Path ".venv")) {
-    Write-Host "建立 Launcher 虛擬環境..."
-    Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "建立 Launcher 虛擬環境失敗"
+    Write-Host "Creating Launcher virtual environment..."
+    Invoke-Checked $pythonExe ($pythonArgs + @("-m", "venv", ".venv")) "Failed to create Launcher virtual environment"
 }
 
-Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "--upgrade", "pip") "更新 Launcher pip 失敗"
-Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "-r", "requirements.txt") "安裝 Launcher 相依套件失敗"
+Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "--upgrade", "pip") "Failed to upgrade Launcher pip"
+Invoke-Checked ".\.venv\Scripts\python.exe" @("-m", "pip", "install", "-r", "requirements.txt") "Failed to install Launcher dependencies"
 Install-NativeHost
 Test-NativeHostRegistration
 Install-ServerEnvironment
@@ -290,32 +290,33 @@ $startupShortcutPath = Join-Path $startupDir "TranslateGemma Launcher.lnk"
 New-Item -ItemType Directory -Force -Path $startupDir | Out-Null
 
 schtasks /Delete /TN "$taskName" /F | Out-Null
-schtasks /Create /F /SC ONLOGON /RL LIMITED /TN "$taskName" /TR "\"$backgroundPythonPath\" \"$launcherPath\" $args" | Out-Null
+$scheduledTaskCommand = '"' + $backgroundPythonPath + '" "' + $launcherPath + '" ' + $args
+schtasks /Create /F /SC ONLOGON /RL LIMITED /TN "$taskName" /TR $scheduledTaskCommand | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "排程自動啟動建立失敗，將使用啟動資料夾捷徑作為 fallback" -ForegroundColor Yellow
+    Write-Host "Scheduled startup task failed. Startup folder shortcut will be used as fallback." -ForegroundColor Yellow
 }
 Set-StartupShortcut -ShortcutPath $startupShortcutPath -TargetPath $backgroundPythonPath -Arguments "`"$launcherPath`" $args" -WorkingDirectory $launcherDir
 
 if (Test-LauncherReady) {
-    Write-Host "Launcher 已在背景執行" -ForegroundColor Green
+    Write-Host "Launcher is already running in the background" -ForegroundColor Green
 } else {
-    Write-Host "正在啟動 Launcher 背景服務..."
+    Write-Host "Starting Launcher background service..."
     $launcherPid = Start-LauncherProcess -PythonPath $backgroundPythonPath -LauncherPath $launcherPath
-    Write-Host "Launcher 背景服務已送出啟動，PID：$launcherPid" -ForegroundColor Cyan
+    Write-Host "Launcher background service start requested. PID: $launcherPid" -ForegroundColor Cyan
 
     $launcherReady = Wait-LauncherReady -TimeoutSeconds 30
 
     if ($launcherReady) {
-        Write-Host "Launcher 已啟動，可直接回 Chrome 按「啟動」下載模型" -ForegroundColor Green
+        Write-Host "Launcher is ready. Return to Chrome and click Start to download the model." -ForegroundColor Green
     } else {
-        Write-Host "Launcher 已安裝，但目前尚未回應；請重新登入 Windows，或檢查 $launcherDir\\launcher.log" -ForegroundColor Yellow
+        Write-Host "Launcher was installed but is not responding yet. Sign out/in to Windows, or check $launcherDir\\launcher.log" -ForegroundColor Yellow
         Show-LauncherLogTail
     }
 }
 
-Write-Host "Launcher 已安裝並設定為開機自動啟動" -ForegroundColor Green
-Write-Host "固定安裝位置：$installRoot" -ForegroundColor Cyan
-Write-Host "Chrome 未封裝擴充請載入：$extensionDir" -ForegroundColor Cyan
-Write-Host "若 Chrome 仍顯示啟動橋接器未安裝，請到 chrome://extensions 移除舊版 TranslateGemma 後，重新載入上方 extension 資料夾" -ForegroundColor Cyan
-Write-Host "Launcher 記錄檔：$launcherDir\\launcher.log" -ForegroundColor Cyan
-Write-Host "Native Host：$nativeHostManifestPath" -ForegroundColor Cyan
+Write-Host "Launcher installed and configured to start automatically" -ForegroundColor Green
+Write-Host "Install location: $installRoot" -ForegroundColor Cyan
+Write-Host "Load this unpacked Chrome extension: $extensionDir" -ForegroundColor Cyan
+Write-Host "If Chrome still says the launch bridge is not installed, remove the old TranslateGemma extension from chrome://extensions, then reload the extension folder above." -ForegroundColor Cyan
+Write-Host "Launcher log: $launcherDir\\launcher.log" -ForegroundColor Cyan
+Write-Host "Native Host: $nativeHostManifestPath" -ForegroundColor Cyan

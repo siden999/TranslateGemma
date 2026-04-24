@@ -79,7 +79,7 @@ function buildDiagnosticDetail(errorMessage = '', context = {}) {
 async function buildLauncherFailure(errorMessage = '', context = {}) {
     const platform = await getPlatformInfo();
     const isWindows = platform.os === 'win';
-    const installCommand = isWindows ? 'install_win.ps1' : 'install_mac.command';
+    const installCommand = isWindows ? 'TranslateGemmaSetup.exe' : 'TranslateGemmaInstaller.command';
     const extensionPath = isWindows
         ? '%LOCALAPPDATA%\\TranslateGemma\\extension'
         : '~/Library/Application Support/TranslateGemma/extension';

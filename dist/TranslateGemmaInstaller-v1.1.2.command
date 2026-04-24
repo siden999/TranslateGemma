@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_VERSION="1.1.1"
+RELEASE_VERSION="1.1.2"
 REPO_OWNER="siden999"
 REPO_NAME="TranslateGemma"
 INSTALL_ROOT="$HOME/Library/Application Support/TranslateGemma"
