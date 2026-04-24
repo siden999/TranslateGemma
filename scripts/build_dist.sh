@@ -47,6 +47,10 @@ copy_common() {
 rm -rf "$MAC_DIR" "$WIN_DIR"
 rm -f "$DIST_DIR"/TranslateGemma-mac-v*.zip
 rm -f "$DIST_DIR"/TranslateGemma-win-v*.zip
+rm -f "$DIST_DIR"/TranslateGemmaSetup-v*.exe
+rm -f "$DIST_DIR"/TranslateGemmaSetup-v*.cmd
+rm -f "$DIST_DIR"/TranslateGemmaSetup-v*.ps1
+rm -f "$DIST_DIR"/TranslateGemmaInstaller-v*.command
 mkdir -p "$DIST_DIR"
 
 copy_common "$MAC_DIR"
@@ -66,5 +70,10 @@ rm -f "$WIN_DIR/launcher/uninstall_mac.command"
     zip -qr "TranslateGemma-mac-v$VERSION.zip" "TranslateGemma-mac"
     zip -qr "TranslateGemma-win-v$VERSION.zip" "TranslateGemma-win"
 )
+
+sed "s/__TRANSLATEGEMMA_VERSION__/$VERSION/g" \
+    "$ROOT_DIR/setup/macos/TranslateGemmaInstaller.command" \
+    > "$DIST_DIR/TranslateGemmaInstaller-v$VERSION.command"
+chmod +x "$DIST_DIR/TranslateGemmaInstaller-v$VERSION.command"
 
 echo "Built release packages for v$VERSION in $DIST_DIR"

@@ -51,18 +51,22 @@
 
 ## 🚀 快速開始
 
-建議使用 Launcher 無痛安裝：背景啟動伺服器、托盤控制、擴充介面可一鍵啟動/暫停。
+一般使用者請從 GitHub Release 下載安裝器，不要下載 source code zip。
 
-### 1️⃣ 安裝 Launcher（推薦無痛）
+### 1️⃣ 安裝本機程式
 
-- **macOS**：執行 `launcher/install_mac.command`
-- **Windows**：以 PowerShell 執行 `launcher/install_win.ps1`（若被阻擋可先執行 `Set-ExecutionPolicy -Scope Process Bypass`）
+- **Windows**：下載並雙擊 `TranslateGemmaSetup-v版本號.exe`
+- **macOS**：下載並雙擊 `TranslateGemmaInstaller-v版本號.command`
 
-> 注意：安裝會先建立 Launcher 與 server 環境並在背景啟動 Launcher（需要 Python 3.10-3.12 與網路，建議 Python 3.12）。第一次在擴充功能裡按「啟動」時，才會下載模型。完成後會自動加入「開機自動啟動」，Launcher 會在背景常駐，但**伺服器預設不啟動**。
-> macOS 與 Windows 安裝器都會註冊 Native Host，因此擴充功能按下「啟動」時，若 Launcher 尚未運作，會先嘗試自動喚起本機 Launcher，再開始下載模型與啟動伺服器。
-> 背景模式不會出現在前台視窗；需要托盤請手動用 `--tray` 啟動。
-> 若 macOS 上仍顯示「Launcher 未啟動」或「啟動橋接器未安裝」，請重新執行 `launcher/install_mac.command`，再到 `chrome://extensions/` 移除舊版 TranslateGemma 並重新載入 `~/Library/Application Support/TranslateGemma/extension`。若仍失敗，查看 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`。
-> 若 Windows 上仍顯示「Launcher 未啟動」、「啟動橋接器未安裝」或 `TypeError: Failed to fetch`，請重新執行 `launcher\install_win.ps1`，確認最後有顯示「Launcher 已啟動」，再到 `chrome://extensions/` 移除舊版 TranslateGemma 並重新載入 `%LOCALAPPDATA%\TranslateGemma\extension`。若仍失敗，查看 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`。
+> 本機安裝器會下載/使用對應版本的發佈包，安裝 Launcher、server 依賴、Native Host、自動啟動項目，並驗證 `127.0.0.1:18181` 控制服務。
+> Windows 的 `.exe` 由 GitHub Actions 在 Release 時自動建置；使用者不需要執行 PowerShell 腳本。
+> 目前仍需要 Python 3.10-3.12（建議 Python 3.12）。第一次在擴充功能裡按「啟動」時，才會下載模型。
+> 如果安裝器失敗，請查看 Launcher log：Windows 是 `%LOCALAPPDATA%\TranslateGemma\launcher\launcher.log`，macOS 是 `~/Library/Application Support/TranslateGemma/launcher/launcher.log`。
+
+**開發/除錯用內部安裝器**
+
+- **macOS**：`launcher/install_mac.command`
+- **Windows**：`launcher/install_win.ps1`
 
 **一鍵移除**
 
@@ -77,7 +81,7 @@
 - 若你在擴充裡按「暫停」，只是停止翻譯伺服器；Launcher 仍在背景待命。
 - 重新開機後，Launcher 會自動再啟動（除非你手動移除自動啟動設定）。
 
-#### 方式 B：手動啟動（開發/除錯用）
+#### 手動啟動（開發/除錯用）
 
 若不使用 Launcher，可手動啟動伺服器：
 

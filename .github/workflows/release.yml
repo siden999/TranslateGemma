@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Release Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync zip
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Build platform packages
+        run: scripts/build_dist.sh "${{ steps.version.outputs.version }}"
+
+      - name: Build Windows setup exe
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd setup/windows/bootstrap
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "../../../dist/TranslateGemmaSetup-v${VERSION}.exe" \
+            .
+
+      - name: List release assets
+        run: ls -lh dist
+
+      - name: Upload release assets artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: translategemma-release-assets
+          path: |
+            dist/TranslateGemmaSetup-v*.exe
+            dist/TranslateGemmaInstaller-v*.command
+            dist/TranslateGemma-win-v*.zip
+            dist/TranslateGemma-mac-v*.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/TranslateGemmaSetup-v*.exe
+            dist/TranslateGemmaInstaller-v*.command
+            dist/TranslateGemma-win-v*.zip
+            dist/TranslateGemma-mac-v*.zip

@@ -7,6 +7,8 @@
 
 ## 安裝
 
+一般使用者請優先使用 GitHub Release 內的 `TranslateGemmaSetup-v版本號.exe` 或 `TranslateGemmaInstaller-v版本號.command`。下面的腳本是內部安裝器，主要給開發與除錯使用。
+
 ### macOS
 1. 執行 `install_mac.command`
 2. 完成後會自動安裝到 `~/Library/Application Support/TranslateGemma`
