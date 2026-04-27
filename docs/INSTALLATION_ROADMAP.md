@@ -79,13 +79,18 @@ Windows 使用者看到的流程應該是：
 5. 按啟動
 ```
 
+目前可用的安裝指令：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/siden999/TranslateGemma/main/setup/windows/install.ps1 | iex"
+```
+
 這段指令的內部工作：
 
-- 檢查 Python 3.12 是否可用。
-- 如果沒有 Python，清楚引導使用者安裝官方 Python 3.12。
-- 建立 `%LOCALAPPDATA%\TranslateGemma\installer-venv`。
-- 從 GitHub 或 PyPI 安裝 `translategemma_installer`。
-- 執行 `translategemma_installer install`。
+- 檢查 Python 3.10-3.12 是否可用。
+- 如果沒有合適 Python，優先嘗試安裝官方 Python 3.12，或清楚引導使用者手動安裝。
+- 下載最新 GitHub Release 的 Windows 安裝包。
+- 呼叫 release 包內的內部安裝器。
 - 安裝 Launcher、server、依賴與 Native Host。
 - 設定開機自動啟動。
 - 確認 `http://127.0.0.1:18181/status` 有回應。

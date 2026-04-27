@@ -66,18 +66,25 @@ TranslateGemma 需要兩段安裝。這不是多做一步，而是 Chrome 擴充
 
 Windows 版目前不把未簽章 `.exe` 當作一般使用者主流程，因為 Windows Smart App Control 可能直接封鎖未知執行檔。
 
-接下來的正式 Windows 流程會改成「複製一段指令到 PowerShell」：
+請照下面做，不要在 C 槽輸入 `%LOCALAPPDATA%\TranslateGemma`。那只是安裝完成後的資料夾位置，不是安裝指令。
 
 1. 開啟 Windows Terminal 或 PowerShell。
-2. 貼上 TranslateGemma 提供的安裝指令。
-3. 等它自動安裝本機程式。
-4. 看到安裝完成後，再去安裝 Chrome 擴充功能。
+2. 複製下面這一整行。
+3. 貼到 PowerShell。
+4. 按 Enter。
+5. 等它顯示 `Local install finished.`
+6. 如果它打開 Python 下載頁，先安裝 Python 3.12，然後回來再貼同一行一次。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/siden999/TranslateGemma/main/setup/windows/install.ps1 | iex"
+```
 
 這段指令會自動做這些事：
 
-- 檢查或引導安裝 Python 3.12。
-- 建立 TranslateGemma 專用資料夾。
-- 建立專用 Python 環境，不污染全域 Python。
+- 下載最新 GitHub Release 的 Windows 安裝包。
+- 檢查 Python 3.10-3.12；如果沒有，會嘗試用 winget 安裝官方 Python 3.12。
+- 建立 TranslateGemma 專用資料夾，不要你自己建。
+- 建立專用 Python 環境，套件不會裝到全域 Python。
 - 安裝 Launcher 與翻譯 server 需要的依賴。
 - 註冊 Chrome Native Host。
 - 設定開機後自動啟動 Launcher。
@@ -87,6 +94,12 @@ Windows 版目前不把未簽章 `.exe` 當作一般使用者主流程，因為 
 
 ```text
 %LOCALAPPDATA%\TranslateGemma
+```
+
+第一段完成後，第二段 Chrome 要選這個資料夾：
+
+```text
+%LOCALAPPDATA%\TranslateGemma\extension
 ```
 
 如果 Windows 顯示找不到啟動橋接器、`TypeError: Failed to fetch`，通常代表第一步本機程式沒有成功裝好，或 Chrome 載入的是舊版 extension。

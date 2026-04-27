@@ -33,17 +33,28 @@ TranslateGemma 需要先裝本機程式，再裝 Chrome 擴充功能。
 
 ### Windows
 
-Windows 沒有簽章時，未簽章 `.exe` 可能被 Smart App Control 擋住。因此 Windows 的正式短期方向是：
+Windows 沒有簽章時，未簽章 `.exe` 可能被 Smart App Control 擋住。所以 Windows 先用 PowerShell 貼上一段安裝指令。
 
-```text
-開 PowerShell → 貼上 TranslateGemma 提供的安裝指令 → 等它完成
+請照這樣做：
+
+1. 開啟 Windows Terminal 或 PowerShell。
+2. 複製下面這一整行。
+3. 貼到 PowerShell。
+4. 按 Enter。
+5. 等它顯示 `Local install finished.`
+6. 如果它打開 Python 下載頁，先安裝 Python 3.12，然後回來再貼同一行一次。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/siden999/TranslateGemma/main/setup/windows/install.ps1 | iex"
 ```
 
-使用者不需要手動開 venv，也不需要自己安裝 Python 套件。安裝指令會把 TranslateGemma 裝到固定位置：
+這一行才是安裝指令。下面這個不是指令，只是安裝完成後的資料夾位置：
 
 ```text
 %LOCALAPPDATA%\TranslateGemma
 ```
+
+這段指令會自動下載 TranslateGemma、檢查 Python、安裝本機程式、註冊橋接器、設定開機自動啟動。使用者不需要手動開 venv，也不需要自己安裝 Python 套件。
 
 安裝完成後，你會得到 Chrome 擴充資料夾：
 
